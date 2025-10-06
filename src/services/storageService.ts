@@ -161,6 +161,38 @@ class StorageService {
   }
 
   /**
+   * Get all recordings with blobs
+   */
+  async getRecordings(): Promise<Recording[]> {
+    const metadata = this.getRecordingsMetadata();
+    const recordings: Recording[] = [];
+
+    for (const meta of metadata) {
+      const blob = await this.getBlobFromIndexedDB(meta.id);
+      if (blob) {
+        recordings.push({
+          id: meta.id,
+          surahNumber: meta.surahNumber,
+          ayahNumber: meta.ayahNumber,
+          pageNumber: meta.pageNumber,
+          audioBlob: blob,
+          duration: meta.duration,
+          createdAt: new Date(meta.createdAt),
+        });
+      }
+    }
+
+    return recordings;
+  }
+
+  /**
+   * Delete a recording (alias for deleteRecording)
+   */
+  async removeRecording(id: string): Promise<void> {
+    await this.deleteRecording(id);
+  }
+
+  /**
    * Delete a recording
    */
   async deleteRecording(id: string): Promise<void> {
