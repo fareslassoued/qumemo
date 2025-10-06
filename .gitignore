@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Quran audio files (large - download on demand)
+/public/audio/*.mp3
+
+# Keep the audio directory structure but ignore MP3 files
+!/public/audio/.gitkeep

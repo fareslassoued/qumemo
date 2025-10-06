@@ -10,6 +10,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-qaloon: var(--font-qaloon);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +24,34 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Quran Text Styling */
+.quran-text {
+  font-family: var(--font-qaloon);
+  font-size: 1.5rem;
+  line-height: 2.5;
+  text-align: center;
+  direction: rtl;
+}
+
+.ayah {
+  display: inline;
+  padding: 0.25rem;
+  transition: background-color 0.2s;
+}
+
+.ayah:hover {
+  background-color: rgba(var(--foreground), 0.05);
+  cursor: pointer;
+}
+
+.ayah.hidden {
+  color: transparent;
+  user-select: none;
+  background-color: rgba(var(--foreground), 0.1);
+}
+
+.ayah.highlighted {
+  background-color: rgba(59, 130, 246, 0.2);
 }
