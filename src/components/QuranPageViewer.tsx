@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { quranDataService } from '@/services/quranDataService';
 import { Ayah, PageInfo } from '@/types/quran';
+import { extractAyahNumber, getAyahTextWithoutNumber } from '@/utils/ayahUtils';
 
 interface QuranPageViewerProps {
   pageNumber: number;
@@ -145,23 +146,30 @@ export function QuranPageViewer({
 
               {/* Ayahs */}
               <div className="quran-text text-justify leading-loose">
-                {ayahs.map((ayah: Ayah) => (
-                  <span
-                    key={ayah.id}
-                    onClick={() => onAyahClick?.(ayah)}
-                    className={`ayah ${
-                      isAyahHidden(ayah.aya_no) ? 'hidden' : ''
-                    } ${
-                      isAyahHighlighted(ayah.sura_no, ayah.aya_no)
-                        ? 'highlighted'
-                        : ''
-                    }`}
-                    data-surah={ayah.sura_no}
-                    data-ayah={ayah.aya_no}
-                  >
-                    {ayah.aya_text}{' '}
-                  </span>
-                ))}
+                {ayahs.map((ayah: Ayah) => {
+                  const ayahText = getAyahTextWithoutNumber(ayah.aya_text);
+                  const ayahNumber = extractAyahNumber(ayah.aya_text);
+
+                  return (
+                    <span
+                      key={ayah.id}
+                      onClick={() => onAyahClick?.(ayah)}
+                      className={`ayah ${
+                        isAyahHidden(ayah.aya_no) ? 'hidden' : ''
+                      } ${
+                        isAyahHighlighted(ayah.sura_no, ayah.aya_no)
+                          ? 'highlighted'
+                          : ''
+                      }`}
+                      data-surah={ayah.sura_no}
+                      data-ayah={ayah.aya_no}
+                    >
+                      <span className="ayah-text">{ayahText}</span>
+                      {ayahNumber && <span className="ayah-number"> {ayahNumber}</span>}
+                      {' '}
+                    </span>
+                  );
+                })}
               </div>
             </div>
           ))}

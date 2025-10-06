@@ -46,10 +46,15 @@ body {
   cursor: pointer;
 }
 
-.ayah.hidden {
+.ayah.hidden .ayah-text {
   color: transparent;
   user-select: none;
-  background-color: rgba(var(--foreground), 0.1);
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.ayah.hidden .ayah-number {
+  color: inherit;
+  font-weight: bold;
 }
 
 .ayah.highlighted {
