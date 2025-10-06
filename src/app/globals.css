@@ -29,10 +29,23 @@ body {
 /* Quran Text Styling */
 .quran-text {
   font-family: var(--font-qaloon);
-  font-size: 1.5rem;
-  line-height: 2.5;
+  font-size: 1.25rem;
+  line-height: 2.2;
   text-align: center;
   direction: rtl;
+}
+
+@media (min-width: 640px) {
+  .quran-text {
+    font-size: 1.5rem;
+    line-height: 2.5;
+  }
+}
+
+/* Touch optimization */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .ayah {

@@ -16,6 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Quran Memorization App - Qalun Recitation",
   description: "Quran memorization app with Qalun recitation by Mahmoud Khalil Al-Husari",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+  themeColor: "#3b82f6",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Quran Memorization",
+  },
 };
 
 export default function RootLayout({

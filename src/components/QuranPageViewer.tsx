@@ -75,18 +75,19 @@ export function QuranPageViewer({
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <div className="bg-gray-100 dark:bg-gray-800 p-4 border-b border-gray-300 dark:border-gray-700">
+      <div className="bg-gray-100 dark:bg-gray-800 p-2 sm:p-4 border-b border-gray-300 dark:border-gray-700">
         <div className="flex justify-between items-center max-w-4xl mx-auto">
           <button
             onClick={handlePreviousPage}
             disabled={pageNumber === 1}
-            className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-600"
+            className="px-2 sm:px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-600 text-sm sm:text-base touch-manipulation"
           >
-            ← Previous
+            <span className="hidden sm:inline">← Previous</span>
+            <span className="sm:hidden">←</span>
           </button>
 
           <div className="text-center">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Page {pageNumber} of {quranDataService.getTotalPages()}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-500">
@@ -97,15 +98,16 @@ export function QuranPageViewer({
           <button
             onClick={handleNextPage}
             disabled={pageNumber === quranDataService.getTotalPages()}
-            className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-600"
+            className="px-2 sm:px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-600 text-sm sm:text-base touch-manipulation"
           >
-            Next →
+            <span className="hidden sm:inline">Next →</span>
+            <span className="sm:hidden">→</span>
           </button>
         </div>
       </div>
 
       {/* Page Content */}
-      <div className="flex-1 overflow-y-auto p-6 bg-amber-50 dark:bg-gray-900">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-amber-50 dark:bg-gray-900">
         <div className="max-w-4xl mx-auto">
           {/* Display by Surah */}
           {Object.entries(ayahsBySurah).map(([surahNo, ayahs]: [string, Ayah[]]) => (
@@ -118,7 +120,7 @@ export function QuranPageViewer({
                     {onSurahPlayClick && (
                       <button
                         onClick={() => onSurahPlayClick(parseInt(surahNo))}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-all hover:scale-110"
+                        className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-full shadow-lg transition-all hover:scale-110 touch-manipulation"
                         title={`Play ${ayahs[0].sura_name_en}`}
                       >
                         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
