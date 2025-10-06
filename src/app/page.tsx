@@ -8,6 +8,7 @@ import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { storageService } from '@/services/storageService';
 import { quranDataService } from '@/services/quranDataService';
 import { Ayah } from '@/types/quran';
+import Link from 'next/link';
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -117,6 +118,14 @@ export default function Home() {
                 </svg>
                 <span className="hidden sm:inline">Menu</span>
               </button>
+
+              <Link
+                href="/memorization"
+                className="px-2 sm:px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded transition-colors flex items-center gap-1 text-sm sm:text-base"
+              >
+                <span>🧠</span>
+                <span className="hidden sm:inline">Memorize</span>
+              </Link>
 
               <button
                 onClick={handleToggleBookmark}
