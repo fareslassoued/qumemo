@@ -174,6 +174,125 @@ class QuranDataService {
   }
 
   /**
+   * Get which surah(s) a page primarily contains
+   */
+  getPageSurahs(pageNumber: number): number[] {
+    const pageInfo = this.getPageInfo(pageNumber);
+    return pageInfo?.surahsOnPage || [];
+  }
+
+  /**
+   * Get the primary (most represented) surah on a page
+   */
+  getPagePrimarySurah(pageNumber: number): number | null {
+    const ayahs = this.getPageAyahs(pageNumber);
+    if (ayahs.length === 0) return null;
+
+    // Count ayahs per surah on this page
+    const surahCounts = new Map<number, number>();
+    ayahs.forEach(ayah => {
+      surahCounts.set(ayah.sura_no, (surahCounts.get(ayah.sura_no) || 0) + 1);
+    });
+
+    // Return surah with most ayahs
+    let maxSurah = ayahs[0].sura_no;
+    let maxCount = 0;
+    surahCounts.forEach((count, surah) => {
+      if (count > maxCount) {
+        maxCount = count;
+        maxSurah = surah;
+      }
+    });
+
+    return maxSurah;
+  }
+
+  /**
+   * Get pages that contain a specific surah
+   */
+  getSurahPages(surahNumber: number): number[] {
+    const ayahs = this.getSurahAyahs(surahNumber);
+    const pages = new Set(ayahs.map(ayah => parseInt(ayah.page)));
+    return Array.from(pages).sort((a, b) => a - b);
+  }
+
+  /**
+   * Get all pages for multiple surahs
+   */
+  getSurahsPages(surahNumbers: number[]): number[] {
+    const allPages = new Set<number>();
+    surahNumbers.forEach(surahNumber => {
+      const pages = this.getSurahPages(surahNumber);
+      pages.forEach(page => allPages.add(page));
+    });
+    return Array.from(allPages).sort((a, b) => a - b);
+  }
+
+  /**
+   * Get surahs in Juz 30 (for backward memorization)
+   */
+  getJuz30Surahs(): number[] {
+    return [78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114];
+  }
+
+  /**
+   * Estimate ayahs per day needed based on daily goal type
+   */
+  estimateAyahsPerDay(goalType: 'full-page' | 'half-page' | 'quarter-page'): number {
+    // Average ayahs per page is ~15
+    const averageAyahsPerPage = 15;
+    switch (goalType) {
+      case 'full-page':
+        return averageAyahsPerPage;
+      case 'half-page':
+        return Math.floor(averageAyahsPerPage / 2);
+      case 'quarter-page':
+        return Math.floor(averageAyahsPerPage / 4);
+      default:
+        return 7;
+    }
+  }
+
+  /**
+   * Group surahs by appropriate daily goal
+   * Returns surah numbers to memorize per session
+   */
+  groupSurahsByDailyGoal(surahNumbers: number[], ayahsPerDay: number): number[][] {
+    const groups: number[][] = [];
+    let currentGroup: number[] = [];
+    let currentAyahCount = 0;
+
+    for (const surahNum of surahNumbers) {
+      const surahInfo = this.getSurahInfo(surahNum);
+      if (!surahInfo) continue;
+
+      // If adding this surah would exceed daily goal
+      if (currentAyahCount > 0 && currentAyahCount + surahInfo.numberOfAyahs > ayahsPerDay) {
+        // If current surah is very small (< 5 ayahs), add it anyway
+        if (surahInfo.numberOfAyahs <= 5) {
+          currentGroup.push(surahNum);
+          currentAyahCount += surahInfo.numberOfAyahs;
+        } else {
+          // Start new group
+          groups.push([...currentGroup]);
+          currentGroup = [surahNum];
+          currentAyahCount = surahInfo.numberOfAyahs;
+        }
+      } else {
+        currentGroup.push(surahNum);
+        currentAyahCount += surahInfo.numberOfAyahs;
+      }
+    }
+
+    // Add remaining group
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+
+    return groups;
+  }
+
+  /**
    * Helper: Determine if surah is Meccan or Medinan
    * Based on traditional classification
    */

@@ -142,6 +142,21 @@ class MemorizationPlanService {
     this.deleteAllSessions(planId);
   }
 
+  /**
+   * Reset all progress for a plan (keep plan settings)
+   */
+  resetProgress(planId: string): void {
+    this.deleteAllProgress(planId);
+    this.deleteAllSessions(planId);
+
+    // Reset plan statistics
+    this.updatePlan(planId, {
+      currentStreak: 0,
+      completionPercentage: 0,
+      totalDaysActive: 0,
+    });
+  }
+
   private savePlans(plans: MemorizationPlan[]): void {
     if (!this.isLocalStorageAvailable()) return;
     localStorage.setItem(this.PLANS_KEY, JSON.stringify(plans));
@@ -296,6 +311,19 @@ class MemorizationPlanService {
     this.saveSessions(planId, sessions);
 
     return session;
+  }
+
+  /**
+   * Create a new session even if one exists for today
+   */
+  createNewSession(planId: string, reviewQueue: number[], newMaterial: number[]): StudySession {
+    // Mark any incomplete session as skipped
+    const todaySession = this.getTodaySession(planId);
+    if (todaySession && !todaySession.completed) {
+      this.updateSession(planId, todaySession.id, { skipped: true });
+    }
+
+    return this.createSession(planId, reviewQueue, newMaterial);
   }
 
   /**

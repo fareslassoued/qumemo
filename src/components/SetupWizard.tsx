@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
+import { quranDataService } from '@/services/quranDataService';
 import { MemorizationPlan } from '@/types/memorization';
 
 interface SetupWizardProps {
@@ -19,6 +20,9 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
     startPage: 1,
     endPage: 604,
     alreadyMemorized: [] as number[],
+    alreadyMemorizedSurahs: [] as number[],
+    hasExistingProgress: false,
+    progressType: 'pages' as 'pages' | 'surahs',
     studyTime: 'flexible' as 'morning' | 'afternoon' | 'evening' | 'night' | 'flexible',
     reminderEnabled: false,
   });
@@ -45,8 +49,16 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
     });
 
     // Mark already memorized pages if any
-    if (planData.alreadyMemorized.length > 0) {
-      memorizationPlanService.markPagesAsMastered(plan.id, planData.alreadyMemorized);
+    let pagesToMark = [...planData.alreadyMemorized];
+
+    // If user selected surahs, convert them to pages
+    if (planData.progressType === 'surahs' && planData.alreadyMemorizedSurahs.length > 0) {
+      const surahPages = quranDataService.getSurahsPages(planData.alreadyMemorizedSurahs);
+      pagesToMark = [...new Set([...pagesToMark, ...surahPages])];
+    }
+
+    if (pagesToMark.length > 0) {
+      memorizationPlanService.markPagesAsMastered(plan.id, pagesToMark);
     }
 
     onComplete(plan);
@@ -214,33 +226,146 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                 Current Progress
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Have you already memorized any pages?
+                Have you already memorized anything?
               </p>
 
               <div className="space-y-4">
-                <button
-                  onClick={() => setPlanData({ ...planData, alreadyMemorized: [] })}
-                  className="w-full p-4 border-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <div className="font-medium text-gray-800 dark:text-gray-200">
-                    Starting Fresh
+                <label className={`flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${!planData.hasExistingProgress ? 'border-blue-500 bg-blue-50 dark:bg-blue-900' : ''}`}>
+                  <input
+                    type="radio"
+                    name="progress"
+                    checked={!planData.hasExistingProgress}
+                    onChange={() => setPlanData({ ...planData, hasExistingProgress: false, alreadyMemorized: [], alreadyMemorizedSurahs: [] })}
+                    className="w-5 h-5 mt-1"
+                  />
+                  <div className="ml-4">
+                    <div className="font-medium text-gray-800 dark:text-gray-200">
+                      Starting Fresh ⭐
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      I haven&apos;t memorized anything yet, or I want to review everything
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    I haven&apos;t memorized anything yet
-                  </div>
-                </button>
+                </label>
 
-                <div className="p-4 border-2 rounded-lg">
-                  <div className="font-medium text-gray-800 dark:text-gray-200 mb-2">
-                    Already Memorized Some
+                <label className={`flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${planData.hasExistingProgress ? 'border-blue-500 bg-blue-50 dark:bg-blue-900' : ''}`}>
+                  <input
+                    type="radio"
+                    name="progress"
+                    checked={planData.hasExistingProgress}
+                    onChange={() => setPlanData({ ...planData, hasExistingProgress: true })}
+                    className="w-5 h-5 mt-1"
+                  />
+                  <div className="ml-4 flex-1">
+                    <div className="font-medium text-gray-800 dark:text-gray-200 mb-2">
+                      Skip Already Memorized
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Mark what you&apos;ve already fully mastered
+                    </div>
+
+                    {planData.hasExistingProgress && (
+                      <div className="mt-4 space-y-3">
+                        {/* Toggle between Pages and Surahs */}
+                        <div className="flex gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                          <button
+                            type="button"
+                            onClick={() => setPlanData({ ...planData, progressType: 'surahs' })}
+                            className={`flex-1 py-2 px-3 rounded transition-colors ${
+                              planData.progressType === 'surahs'
+                                ? 'bg-white dark:bg-gray-600 shadow font-medium'
+                                : 'hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            By Surah
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPlanData({ ...planData, progressType: 'pages' })}
+                            className={`flex-1 py-2 px-3 rounded transition-colors ${
+                              planData.progressType === 'pages'
+                                ? 'bg-white dark:bg-gray-600 shadow font-medium'
+                                : 'hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            By Page
+                          </button>
+                        </div>
+
+                        {/* Surah Selection */}
+                        {planData.progressType === 'surahs' && (
+                          <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">
+                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Select memorized surahs:
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                              {quranDataService.getAllSurahs().map((surah) => (
+                                <button
+                                  key={surah.number}
+                                  type="button"
+                                  onClick={() => {
+                                    setPlanData({
+                                      ...planData,
+                                      alreadyMemorizedSurahs: planData.alreadyMemorizedSurahs.includes(surah.number)
+                                        ? planData.alreadyMemorizedSurahs.filter(s => s !== surah.number)
+                                        : [...planData.alreadyMemorizedSurahs, surah.number]
+                                    });
+                                  }}
+                                  className={`px-2 py-2 text-xs rounded transition-colors text-left ${
+                                    planData.alreadyMemorizedSurahs.includes(surah.number)
+                                      ? 'bg-green-500 text-white'
+                                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                                  }`}
+                                >
+                                  <div className="font-medium">{surah.number}. {surah.englishName}</div>
+                                  <div className="text-[10px] opacity-75">{surah.numberOfAyahs} ayahs</div>
+                                </button>
+                              ))}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              {planData.alreadyMemorizedSurahs.length} surah{planData.alreadyMemorizedSurahs.length !== 1 ? 's' : ''} selected
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Page Selection */}
+                        {planData.progressType === 'pages' && (
+                          <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">
+                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Select memorized pages:
+                            </div>
+                            <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
+                              {Array.from({ length: 604 }, (_, i) => i + 1).map((page) => (
+                                <button
+                                  key={page}
+                                  type="button"
+                                  onClick={() => {
+                                    setPlanData({
+                                      ...planData,
+                                      alreadyMemorized: planData.alreadyMemorized.includes(page)
+                                        ? planData.alreadyMemorized.filter(p => p !== page)
+                                        : [...planData.alreadyMemorized, page]
+                                    });
+                                  }}
+                                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                                    planData.alreadyMemorized.includes(page)
+                                      ? 'bg-green-500 text-white'
+                                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              {planData.alreadyMemorized.length} page{planData.alreadyMemorized.length !== 1 ? 's' : ''} selected
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    You can mark pages after setup from the progress page
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
-                    Note: For now, starting fresh. You can update this later.
-                  </p>
-                </div>
+                </label>
               </div>
             </div>
           )}

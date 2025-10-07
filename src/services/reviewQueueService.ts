@@ -178,20 +178,50 @@ class ReviewQueueService {
     reviewsCritical: number;
     newMaterial: number[];
     hasSession: boolean;
+    nextSessionDate: Date | null;
   } {
     const reviewQueue = this.generateTodayQueue(planId);
     const newMaterial = this.shouldPresentNewMaterial(planId)
       ? this.getNextNewMaterial(planId)
       : [];
     const todaySession = memorizationPlanService.getTodaySession(planId);
+    const nextSessionDate = this.getNextSessionDate(planId);
 
     return {
       reviewsTotal: reviewQueue.length,
       reviewsOverdue: reviewQueue.filter(r => r.daysOverdue > 0).length,
       reviewsCritical: reviewQueue.filter(r => r.priority === 'critical').length,
       newMaterial,
-      hasSession: todaySession !== null,
+      hasSession: todaySession !== null && !todaySession.completed,
+      nextSessionDate,
     };
+  }
+
+  /**
+   * Get the date when the next review session is due
+   */
+  getNextSessionDate(planId: string): Date | null {
+    const allProgress = memorizationPlanService.getAllProgress(planId);
+
+    if (allProgress.length === 0) {
+      // No progress yet, next session is today
+      return new Date();
+    }
+
+    // Find the earliest due date
+    let earliestDate: Date | null = null;
+
+    for (const progress of allProgress) {
+      if (progress.status === 'new') continue;
+
+      const dueDate = progress.nextReviewDate;
+      if (!earliestDate || dueDate < earliestDate) {
+        earliestDate = dueDate;
+      }
+    }
+
+    // If no reviews scheduled, return today (for new material)
+    return earliestDate || new Date();
   }
 
   /**
@@ -200,17 +230,20 @@ class ReviewQueueService {
   getOrCreateTodaySession(planId: string) {
     let session = memorizationPlanService.getTodaySession(planId);
 
-    if (!session) {
-      // Create new session for today
-      const reviewQueue = this.generateTodayQueue(planId);
-      const newMaterial = this.getNextNewMaterial(planId);
-
-      session = memorizationPlanService.createSession(
-        planId,
-        reviewQueue.map(r => r.pageNumber),
-        newMaterial
-      );
+    // Only return session if it's not completed
+    if (session && !session.completed) {
+      return session;
     }
+
+    // If no session or session is completed, create new one
+    const reviewQueue = this.generateTodayQueue(planId);
+    const newMaterial = this.getNextNewMaterial(planId);
+
+    session = memorizationPlanService.createSession(
+      planId,
+      reviewQueue.map(r => r.pageNumber),
+      newMaterial
+    );
 
     return session;
   }

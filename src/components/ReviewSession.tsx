@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { QuranPageViewer } from './QuranPageViewer';
+import { VoiceRecorder } from './VoiceRecorder';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
 import { reviewQueueService } from '@/services/reviewQueueService';
 import { spacedRepetitionService } from '@/services/spacedRepetitionService';
-import { StudySession } from '@/types/memorization';
+import { StudySession, Recording } from '@/types/memorization';
 import { useRouter } from 'next/navigation';
 
 interface ReviewSessionProps {
@@ -20,6 +21,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   const [hiddenAyahs, setHiddenAyahs] = useState<number[]>([]);
   const [sessionStartTime] = useState(Date.now());
   const [reviewStartTime, setReviewStartTime] = useState<number | null>(null);
+  const [showRecorder, setShowRecorder] = useState(false);
+  const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSession();
@@ -76,12 +79,20 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     // Update session
     const updatedCompletedReviews = {
       ...session.completedReviews,
-      [currentPage]: { grade, timeSpent },
+      [currentPage]: {
+        grade,
+        timeSpent,
+        recordingId: currentRecordingId || undefined,
+      },
     };
 
     memorizationPlanService.updateSession(planId, session.id, {
       completedReviews: updatedCompletedReviews,
     });
+
+    // Reset recording state
+    setCurrentRecordingId(null);
+    setShowRecorder(false);
 
     // Move to next
     if (currentIndex < getTotalItems() - 1) {
@@ -98,6 +109,10 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
       // Session complete
       completeSession();
     }
+  };
+
+  const handleRecordingComplete = (recording: Recording) => {
+    setCurrentRecordingId(recording.id);
   };
 
   const completeSession = () => {
@@ -233,12 +248,33 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
         <div className="max-w-6xl mx-auto">
           {!showGrading ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Recorder Toggle */}
+              {showRecorder && (
+                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                      Record Your Recitation
+                    </h3>
+                    <button
+                      onClick={() => setShowRecorder(false)}
+                      className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <VoiceRecorder
+                    pageNumber={currentPage}
+                    onRecordingComplete={handleRecordingComplete}
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button
                   onClick={handleRevealAyahs}
                   className="py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
-                  👁️ Reveal Ayahs
+                  👁️ Reveal
                 </button>
 
                 <button
@@ -251,17 +287,30 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
                 </button>
 
                 <button
+                  onClick={() => setShowRecorder(!showRecorder)}
+                  className={`py-3 rounded-lg transition-colors ${
+                    showRecorder
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  🎤 {showRecorder ? 'Close' : 'Record'}
+                </button>
+
+                <button
                   onClick={handleReadyToGrade}
                   className="py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
                 >
-                  Ready to Grade →
+                  Grade →
                 </button>
               </div>
 
               <p className="text-sm text-center text-gray-600 dark:text-gray-400">
                 {isNewMaterial()
                   ? 'Practice this new page, then grade yourself'
-                  : 'Recite from memory, then grade your recall'
+                  : currentRecordingId
+                  ? '✅ Recording saved! Ready to grade'
+                  : 'Recite from memory, optionally record, then grade'
                 }
               </p>
             </div>

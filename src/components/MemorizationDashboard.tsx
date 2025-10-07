@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
 import { reviewQueueService } from '@/services/reviewQueueService';
+import { quranDataService } from '@/services/quranDataService';
 import { MemorizationPlan, MemorizationStats } from '@/types/memorization';
 import { useRouter } from 'next/navigation';
 
@@ -19,6 +20,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
     reviewsCritical: number;
     newMaterial: number[];
     hasSession: boolean;
+    nextSessionDate: Date | null;
   } | null>(null);
 
   useEffect(() => {
@@ -49,6 +51,60 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
   }
 
   const hasWork = todaySummary.reviewsTotal > 0 || todaySummary.newMaterial.length > 0;
+
+  // Get current surah info
+  const getCurrentSurahInfo = (): {
+    number: number;
+    name: string;
+    nameArabic: string;
+    englishName: string;
+    englishNameTranslation: string;
+    revelationType: 'Meccan' | 'Medinan';
+    numberOfAyahs: number;
+    totalPages: number;
+    completedPages: number;
+    progress: number;
+  } | null => {
+    const allProgress = memorizationPlanService.getAllProgress(plan.id);
+    if (allProgress.length === 0) return null;
+
+    // Find latest page being worked on
+    const latestProgress = allProgress
+      .filter(p => p.status !== 'new')
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
+
+    if (!latestProgress) {
+      // No progress yet, show first page
+      const firstPage = plan.direction === 'forward' ? plan.startPage : plan.endPage;
+      const surahNum = quranDataService.getPagePrimarySurah(firstPage);
+      return surahNum ? {
+        ...quranDataService.getSurahInfo(surahNum)!,
+        totalPages: quranDataService.getSurahPages(surahNum).length,
+        completedPages: 0,
+        progress: 0,
+      } : null;
+    }
+
+    const surahNum = quranDataService.getPagePrimarySurah(latestProgress.pageNumber);
+    if (!surahNum) return null;
+
+    const surahInfo = quranDataService.getSurahInfo(surahNum);
+    if (!surahInfo) return null;
+
+    const surahPages = quranDataService.getSurahPages(surahNum);
+    const completedPages = allProgress.filter(p =>
+      surahPages.includes(p.pageNumber) && p.status === 'mastered'
+    ).length;
+
+    return {
+      ...surahInfo,
+      totalPages: surahPages.length,
+      completedPages,
+      progress: Math.round((completedPages / surahPages.length) * 100),
+    };
+  };
+
+  const currentSurahInfo = getCurrentSurahInfo();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
@@ -114,6 +170,63 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
           </div>
         </div>
 
+        {/* Current Surah Progress */}
+        {currentSurahInfo && (
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900 dark:to-blue-900 rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-sm text-purple-600 dark:text-purple-300 font-medium">
+                  📖 Current Surah
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mt-1">
+                  {currentSurahInfo.englishName}
+                </h2>
+                <div className="text-lg text-gray-600 dark:text-gray-400 mt-1">
+                  {currentSurahInfo.nameArabic}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold text-purple-600 dark:text-purple-300">
+                  {currentSurahInfo.progress}%
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  Complete
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mt-4 text-center">
+              <div>
+                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                  {currentSurahInfo.numberOfAyahs}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Ayahs</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                  {currentSurahInfo.completedPages}/{currentSurahInfo.totalPages}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Pages</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                  {currentSurahInfo.revelationType}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400">Type</div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${currentSurahInfo.progress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Today's Session */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
@@ -170,13 +283,62 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                 onClick={handleStartSession}
                 className="w-full py-4 bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-green-600 transition-all transform hover:scale-105 shadow-lg"
               >
-                Start Session →
+                {todaySummary.hasSession ? 'Continue Session →' : 'Start Session →'}
               </button>
 
               {todaySummary.hasSession && (
-                <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-                  Continue your session from earlier today
-                </p>
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    You have an active session from earlier today
+                  </p>
+                  <div className="flex gap-2 justify-center">
+                    <button
+                      onClick={() => {
+                        if (confirm('Mark current session as complete? This will count it as finished.')) {
+                          const session = memorizationPlanService.getTodaySession(plan.id);
+                          if (session) {
+                            memorizationPlanService.completeSession(plan.id, session.id, 0);
+                            loadData();
+                          }
+                        }
+                      }}
+                      className="text-sm px-3 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800"
+                    >
+                      ✅ Mark Done
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm('Start a fresh session? This will mark your current session as skipped and create a new one with the latest review queue.')) {
+                          // Mark current session as skipped
+                          const session = memorizationPlanService.getTodaySession(plan.id);
+                          if (session) {
+                            memorizationPlanService.updateSession(plan.id, session.id, {
+                              skipped: true,
+                              completed: true,
+                              completedAt: new Date()
+                            });
+                          }
+
+                          // Force create new session
+                          const reviewQueue = reviewQueueService.generateTodayQueue(plan.id);
+                          const newMaterial = reviewQueueService.getNextNewMaterial(plan.id);
+                          memorizationPlanService.createSession(
+                            plan.id,
+                            reviewQueue.map(r => r.pageNumber),
+                            newMaterial
+                          );
+
+                          // Reload and start new session
+                          loadData();
+                          setTimeout(() => handleStartSession(), 100);
+                        }
+                      }}
+                      className="text-sm px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
+                    >
+                      🔄 Start Fresh Session
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
@@ -188,9 +350,23 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
               <p className="text-gray-600 dark:text-gray-400">
                 No reviews due today. Great work on staying consistent!
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mt-4">
-                Come back tomorrow for your next session
-              </p>
+              {todaySummary.nextSessionDate && (
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg inline-block">
+                  <div className="text-sm text-blue-700 dark:text-blue-300">
+                    📅 Next Session Due
+                  </div>
+                  <div className="text-lg font-semibold text-blue-900 dark:text-blue-100 mt-1">
+                    {todaySummary.nextSessionDate.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    {Math.ceil((todaySummary.nextSessionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} day{Math.ceil((todaySummary.nextSessionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''} from now
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -302,17 +478,41 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            {plan.pausedAt ? (
+              <button
+                onClick={() => {
+                  memorizationPlanService.resumePlan(plan.id);
+                  window.location.reload();
+                }}
+                className="w-full py-2 bg-green-500 text-white hover:bg-green-600 rounded transition-colors"
+              >
+                ▶️ Resume Plan
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to pause this plan?')) {
+                    memorizationPlanService.pausePlan(plan.id);
+                    window.location.reload();
+                  }
+                }}
+                className="w-full py-2 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900 rounded transition-colors"
+              >
+                ⏸️ Pause Plan
+              </button>
+            )}
+
             <button
               onClick={() => {
-                if (confirm('Are you sure you want to pause this plan?')) {
-                  memorizationPlanService.pausePlan(plan.id);
+                if (confirm('Reset ALL progress? This cannot be undone!\n\nThis will:\n- Delete all your review history\n- Reset all page progress to new\n- Clear all statistics\n- Keep your plan settings')) {
+                  memorizationPlanService.resetProgress(plan.id);
                   window.location.reload();
                 }
               }}
-              className="w-full py-2 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900 rounded transition-colors"
+              className="w-full py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
             >
-              Pause Plan
+              🔄 Reset All Progress
             </button>
           </div>
         </div>
