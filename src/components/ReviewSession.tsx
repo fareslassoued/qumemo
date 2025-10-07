@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { QuranPageViewer } from './QuranPageViewer';
 import { VoiceRecorder } from './VoiceRecorder';
+import { AudioPlayer } from './AudioPlayer';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
 import { reviewQueueService } from '@/services/reviewQueueService';
 import { spacedRepetitionService } from '@/services/spacedRepetitionService';
@@ -270,13 +271,21 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
       </div>
 
       {/* Page Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
         <QuranPageViewer
           pageNumber={currentPage}
-          memorizationMode={true}
           hiddenAyahs={currentPage ? getHiddenAyahsForPage(currentPage) : []}
           onPageChange={(newPage) => setViewPage(newPage)}
         />
+
+        {/* Audio Player */}
+        {(() => {
+          const sessionPage = getPageAtIndex(currentIndex);
+          if (!sessionPage) return null;
+          const surahNum = getCurrentSurah(sessionPage);
+          if (!surahNum) return null;
+          return <AudioPlayer surahNumber={surahNum} />;
+        })()}
       </div>
 
       {/* Action Panel */}

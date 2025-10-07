@@ -45,7 +45,9 @@ export function QuranPageViewer({
   };
 
   const isAyahHidden = (ayahNumber: number) => {
-    return memorizationMode && hiddenAyahs.includes(ayahNumber);
+    // If hiddenAyahs has items, we're in memorization mode regardless of the flag
+    const isMemorizationMode = memorizationMode || hiddenAyahs.length > 0;
+    return isMemorizationMode && hiddenAyahs.includes(ayahNumber);
   };
 
   const isAyahHighlighted = (surahNumber: number, ayahNumber: number) => {
@@ -182,9 +184,9 @@ export function QuranPageViewer({
       <div className="bg-gray-100 dark:bg-gray-800 p-3 border-t border-gray-300 dark:border-gray-700">
         <div className="text-center text-sm text-gray-600 dark:text-gray-400">
           {pageInfo.ayahs.length} ayahs on this page
-          {memorizationMode && (
+          {hiddenAyahs.length > 0 && (
             <span className="ml-4 text-orange-600 dark:text-orange-400">
-              Memorization Mode Active ({hiddenAyahs.length} ayahs hidden)
+              {hiddenAyahs.length} ayahs hidden
             </span>
           )}
         </div>

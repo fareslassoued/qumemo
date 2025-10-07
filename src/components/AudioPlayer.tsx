@@ -19,6 +19,7 @@ export function AudioPlayer({ surahNumber, onPlayingChange }: AudioPlayerProps) 
   const [pendingSurah, setPendingSurah] = useState<number | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [settings, setSettings] = useState(audioService.getSettings());
 
   useEffect(() => {
     const updateState = () => {
@@ -126,6 +127,42 @@ export function AudioPlayer({ surahNumber, onPlayingChange }: AudioPlayerProps) 
     setShowDownloadDialog(false);
     setPendingSurah(null);
     setDownloadProgress(0);
+  };
+
+  const handleRepeatAyahToggle = () => {
+    const newSettings = { ...settings, repeatAyah: !settings.repeatAyah };
+    setSettings(newSettings);
+    audioService.updateSettings(newSettings);
+  };
+
+  const handleRepeatCountChange = (count: number) => {
+    const newSettings = { ...settings, repeatCount: count };
+    setSettings(newSettings);
+    audioService.updateSettings(newSettings);
+  };
+
+  const handleRepeatSectionToggle = () => {
+    const newSettings = { ...settings, repeatSection: !settings.repeatSection };
+    setSettings(newSettings);
+    audioService.updateSettings(newSettings);
+  };
+
+  const handleSectionStartChange = (ayah: number) => {
+    const newSettings = {
+      ...settings,
+      sectionStart: { surah: surahNumber, ayah },
+    };
+    setSettings(newSettings);
+    audioService.updateSettings(newSettings);
+  };
+
+  const handleSectionEndChange = (ayah: number) => {
+    const newSettings = {
+      ...settings,
+      sectionEnd: { surah: surahNumber, ayah },
+    };
+    setSettings(newSettings);
+    audioService.updateSettings(newSettings);
   };
 
   const formatTime = (seconds: number): string => {
@@ -246,19 +283,55 @@ export function AudioPlayer({ surahNumber, onPlayingChange }: AudioPlayerProps) 
               </div>
             </div>
 
-            {/* Repeat Options */}
-            <div>
-              <label className="text-xs text-gray-600 dark:text-gray-400 block mb-2">
-                Repeat Options
-              </label>
-              <div className="flex gap-2">
-                <button className="px-3 py-1 rounded text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
-                  Repeat Ayah
-                </button>
-                <button className="px-3 py-1 rounded text-sm bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
-                  Repeat Section
+            {/* Repeat Surah */}
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <label className="text-xs text-gray-600 dark:text-gray-400 block">
+                    Repeat Surah
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    Loops entire surah
+                  </p>
+                </div>
+                <button
+                  onClick={handleRepeatAyahToggle}
+                  className={`px-3 py-1 rounded text-sm ${
+                    settings.repeatAyah
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {settings.repeatAyah ? 'ON' : 'OFF'}
                 </button>
               </div>
+              {settings.repeatAyah && (
+                <div>
+                  <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                    Repeat Count: {settings.repeatCount}x
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {[1, 2, 3, 5, 7, 10, 20].map((count) => (
+                      <button
+                        key={count}
+                        onClick={() => handleRepeatCountChange(count)}
+                        className={`px-2 py-1 rounded text-xs ${
+                          settings.repeatCount === count
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {count}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Info Note */}
+            <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-800 dark:text-yellow-300">
+              <strong>Note:</strong> Ayah-by-ayah playback requires ayah timestamp data (coming soon). Currently plays whole surah.
             </div>
           </div>
         )}
