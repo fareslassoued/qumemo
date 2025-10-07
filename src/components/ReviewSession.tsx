@@ -47,46 +47,11 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   const getCurrentSurah = (pageNumber: number): number | null => {
     if (!session) return null;
 
-    const { quranDataService } = require('@/services/quranDataService');
-    const plan = memorizationPlanService.getPlan(planId);
-    if (!plan) return null;
-
     // Check if this page is part of new material queue
     const isPageInNewMaterial = session.newMaterial.includes(pageNumber);
 
-    if (isPageInNewMaterial) {
-      // For new material, find the next unstarted surah based on plan direction
-      const allProgress = memorizationPlanService.getAllProgress(planId);
-
-      if (plan.direction === 'forward') {
-        // Forward: Start from Surah 1
-        for (let surah = 1; surah <= 114; surah++) {
-          const surahPages = quranDataService.getSurahPages(surah);
-          const allPagesStarted = surahPages.every(page =>
-            allProgress.some(p => p.pageNumber === page)
-          );
-
-          if (!allPagesStarted) {
-            return surah;
-          }
-        }
-      } else {
-        // Backward: Start from Surah 114
-        for (let surah = 114; surah >= 1; surah--) {
-          const surahPages = quranDataService.getSurahPages(surah);
-          const allPagesStarted = surahPages.every(page =>
-            allProgress.some(p => p.pageNumber === page)
-          );
-
-          if (!allPagesStarted) {
-            return surah;
-          }
-        }
-      }
-    }
-
-    // For reviews, get the primary surah
-    return quranDataService.getPagePrimarySurah(pageNumber);
+    // Use shared utility function
+    return getCurrentSurahForPage(planId, pageNumber, isPageInNewMaterial);
   };
 
   // Calculate which ayahs to hide on the given page

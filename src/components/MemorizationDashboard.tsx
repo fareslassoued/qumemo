@@ -6,6 +6,7 @@ import { reviewQueueService } from '@/services/reviewQueueService';
 import { quranDataService } from '@/services/quranDataService';
 import { MemorizationPlan, MemorizationStats } from '@/types/memorization';
 import { useRouter } from 'next/navigation';
+import { getNextSurahToMemorize } from '@/utils/surahDetection';
 
 interface MemorizationDashboardProps {
   plan: MemorizationPlan;
@@ -67,37 +68,8 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
   } | null => {
     const allProgress = memorizationPlanService.getAllProgress(plan.id);
 
-    // Find the next surah to memorize (same logic as getNextSurahToMemorize)
-    let nextSurah: number | null = null;
-
-    if (plan.direction === 'forward') {
-      // Forward: Start from Surah 1
-      for (let surah = 1; surah <= 114; surah++) {
-        const surahPages = quranDataService.getSurahPages(surah);
-        const allPagesStarted = surahPages.every(page =>
-          allProgress.some(p => p.pageNumber === page)
-        );
-
-        if (!allPagesStarted) {
-          nextSurah = surah;
-          break;
-        }
-      }
-    } else {
-      // Backward: Start from Surah 114 (Juz 30)
-      for (let surah = 114; surah >= 1; surah--) {
-        const surahPages = quranDataService.getSurahPages(surah);
-        const allPagesStarted = surahPages.every(page =>
-          allProgress.some(p => p.pageNumber === page)
-        );
-
-        if (!allPagesStarted) {
-          nextSurah = surah;
-          break;
-        }
-      }
-    }
-
+    // Use shared utility function
+    const nextSurah = getNextSurahToMemorize(plan.id, plan.direction);
     if (!nextSurah) return null;
 
     const surahInfo = quranDataService.getSurahInfo(nextSurah);
@@ -281,7 +253,6 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
               {/* New Material */}
               {todaySummary.newMaterial.length > 0 && (() => {
-                const firstPage = todaySummary.newMaterial[0];
                 // Use the same logic as getCurrentSurahInfo to find the correct next surah
                 const surahNum = currentSurahInfo?.number || null;
                 const surahInfo = surahNum ? quranDataService.getSurahInfo(surahNum) : null;
