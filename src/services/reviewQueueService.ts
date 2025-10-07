@@ -1,6 +1,7 @@
-import { ReviewItem, MemorizationPlan } from '@/types/memorization';
+import { ReviewItem } from '@/types/memorization';
 import { spacedRepetitionService } from './spacedRepetitionService';
 import { memorizationPlanService } from './memorizationPlanService';
+import { quranDataService } from './quranDataService';
 
 /**
  * Service for generating and managing daily review queues
@@ -53,7 +54,6 @@ class ReviewQueueService {
     const plan = memorizationPlanService.getPlan(planId);
     if (!plan) return [];
 
-    const { quranDataService } = require('./quranDataService');
     const allProgress = memorizationPlanService.getAllProgress(planId);
     const completedPages = new Set(allProgress.map(p => p.pageNumber));
 
@@ -73,7 +73,7 @@ class ReviewQueueService {
     }
 
     // Return pages based on daily goal
-    const ayahsPerDay = quranDataService.estimateAyahsPerDay(plan.dailyGoal.type);
+    // const ayahsPerDay = quranDataService.estimateAyahsPerDay(plan.dailyGoal.type);
 
     // For small surahs or first session, return first unstarted page
     // Can be expanded to return multiple pages based on daily goal
@@ -87,7 +87,6 @@ class ReviewQueueService {
     const plan = memorizationPlanService.getPlan(planId);
     if (!plan) return null;
 
-    const { quranDataService } = require('./quranDataService');
     const allProgress = memorizationPlanService.getAllProgress(planId);
 
     // Get all started surahs
@@ -134,7 +133,6 @@ class ReviewQueueService {
     const plan = memorizationPlanService.getPlan(planId);
     if (!plan) return [];
 
-    const { quranDataService } = require('./quranDataService');
 
     // Find next surah in sequence
     const nextSurah = plan.direction === 'forward'

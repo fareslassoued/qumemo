@@ -141,29 +141,6 @@ export function AudioPlayer({ surahNumber, onPlayingChange }: AudioPlayerProps) 
     audioService.updateSettings(newSettings);
   };
 
-  const handleRepeatSectionToggle = () => {
-    const newSettings = { ...settings, repeatSection: !settings.repeatSection };
-    setSettings(newSettings);
-    audioService.updateSettings(newSettings);
-  };
-
-  const handleSectionStartChange = (ayah: number) => {
-    const newSettings = {
-      ...settings,
-      sectionStart: { surah: surahNumber, ayah },
-    };
-    setSettings(newSettings);
-    audioService.updateSettings(newSettings);
-  };
-
-  const handleSectionEndChange = (ayah: number) => {
-    const newSettings = {
-      ...settings,
-      sectionEnd: { surah: surahNumber, ayah },
-    };
-    setSettings(newSettings);
-    audioService.updateSettings(newSettings);
-  };
 
   const formatTime = (seconds: number): string => {
     if (isNaN(seconds) || !isFinite(seconds)) return '0:00';

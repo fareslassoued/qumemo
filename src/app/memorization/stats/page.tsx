@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
 import { MemorizationStats } from '@/types/memorization';
 
-export default function StatsPage() {
+function StatsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [planId, setPlanId] = useState<string | null>(null);
@@ -152,5 +152,19 @@ export default function StatsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function StatsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl text-gray-600 dark:text-gray-400">
+          Loading...
+        </div>
+      </div>
+    }>
+      <StatsPageContent />
+    </Suspense>
   );
 }

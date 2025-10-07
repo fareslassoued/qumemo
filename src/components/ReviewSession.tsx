@@ -7,7 +7,9 @@ import { AudioPlayer } from './AudioPlayer';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
 import { reviewQueueService } from '@/services/reviewQueueService';
 import { spacedRepetitionService } from '@/services/spacedRepetitionService';
-import { StudySession, Recording } from '@/types/memorization';
+import { quranDataService } from '@/services/quranDataService';
+import { StudySession } from '@/types/memorization';
+import { Recording } from '@/types/quran';
 import { useRouter } from 'next/navigation';
 import { getCurrentSurahForPage } from '@/utils/surahDetection';
 
@@ -27,10 +29,6 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   const [showRecorder, setShowRecorder] = useState(false);
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadSession();
-  }, [planId]);
-
   const loadSession = () => {
     const todaySession = reviewQueueService.getOrCreateTodaySession(planId);
     setSession(todaySession);
@@ -44,6 +42,11 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
       setReviewStartTime(Date.now());
     }
   };
+
+  useEffect(() => {
+    loadSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planId]);
 
   const getCurrentSurah = (pageNumber: number): number | null => {
     if (!session) return null;
@@ -59,7 +62,6 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   const getHiddenAyahsForPage = (pageNumber: number): number[] => {
     if (!memorizationAyahsHidden) return [];
 
-    const { quranDataService } = require('@/services/quranDataService');
     const pageInfo = quranDataService.getPageInfo(pageNumber);
     if (!pageInfo) return [];
 
@@ -230,7 +232,6 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
                 Page {currentPage}
               </div>
               {(() => {
-                const { quranDataService } = require('@/services/quranDataService');
                 const surahNum = getCurrentSurah(currentPage);
                 if (surahNum) {
                   const surahInfo = quranDataService.getSurahInfo(surahNum);

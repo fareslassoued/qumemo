@@ -24,16 +24,17 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
     nextSessionDate: Date | null;
   } | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [plan.id]);
-
   const loadData = () => {
     const planStats = memorizationPlanService.getStatistics(plan.id);
     const summary = reviewQueueService.getTodaySummary(plan.id);
     setStats(planStats);
     setTodaySummary(summary);
   };
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.id]);
 
   const handleStartSession = () => {
     router.push(`/memorization/review?planId=${plan.id}`);

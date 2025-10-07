@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { ReviewSession } from '@/components/ReviewSession';
 import { useSearchParams } from 'next/navigation';
 
-export default function ReviewPage() {
+function ReviewPageContent() {
   const searchParams = useSearchParams();
   const [planId, setPlanId] = useState<string | null>(null);
 
@@ -24,4 +24,18 @@ export default function ReviewPage() {
   }
 
   return <ReviewSession planId={planId} />;
+}
+
+export default function ReviewPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl text-gray-600 dark:text-gray-400">
+          Loading...
+        </div>
+      </div>
+    }>
+      <ReviewPageContent />
+    </Suspense>
+  );
 }

@@ -101,7 +101,157 @@ None currently - app is functional
 
 ## Next Development Session - Priority Tasks
 
-### 🎯 Immediate Next Steps (Pick One or More)
+### 🎯 TOP PRIORITY: Ayah-by-Ayah Audio Playback
+
+**Goal**: Implement individual ayah playback with repeat functionality for proper memorization support.
+
+**Current Limitation**:
+- Audio files are per-surah (001.mp3, 002.mp3, etc.)
+- Cannot play individual ayahs or jump between ayahs
+- Repeat functionality only works for entire surahs
+- This blocks the core memorization workflow (repeat ayah 1-7, then 7-12, etc.)
+
+**Solution Approach: Ayah Timestamp Data (RECOMMENDED)**
+
+Use existing surah audio files with timestamp mapping for each ayah.
+
+**Pros:**
+- No additional audio files needed (~596MB saved)
+- Smaller storage footprint
+- Faster implementation
+- Works with existing Qalun audio
+
+**Implementation Plan** (4-6 hours):
+
+1. **Find/Create Ayah Timestamps** (1-2 hours)
+   - Search for Qalun (Al-Husari) ayah timing data
+   - Possible sources:
+     - Quran.com API: `https://api.quran.com/api/v4/quran/timings/{recitation_id}`
+     - Every Ayah Project: https://github.com/everyayah/everyayah.github.io
+     - Tanzil Project: https://tanzil.net/
+   - Format needed: JSON file mapping `{surah: number, ayah: number, startTime: number, endTime: number}`
+   - Example structure:
+     ```json
+     {
+       "1": [
+         {"ayah": 1, "startTime": 0.5, "endTime": 4.2},
+         {"ayah": 2, "startTime": 4.3, "endTime": 8.1}
+       ]
+     }
+     ```
+
+2. **Create Timing Service** (1 hour)
+   - File: `src/services/ayahTimingService.ts`
+   ```typescript
+   class AyahTimingService {
+     private timings: Map<string, AyahTiming> = new Map();
+
+     async loadTimings(surahNumber: number): Promise<void>
+     getAyahTiming(surah: number, ayah: number): AyahTiming | null
+     getAyahAtTime(surah: number, currentTime: number): number
+   }
+   ```
+
+3. **Update AudioService** (2 hours)
+   - Modify `src/services/audioService.ts`
+   ```typescript
+   // Add ayah playback
+   async playAyah(surah: number, ayah: number): Promise<void> {
+     const timing = ayahTimingService.getAyahTiming(surah, ayah);
+     if (timing) {
+       this.audio.currentTime = timing.startTime;
+       this.setupAyahEndListener(timing.endTime);
+     }
+   }
+
+   private setupAyahEndListener(endTime: number): void {
+     const checkTime = () => {
+       if (this.audio.currentTime >= endTime) {
+         this.audio.pause();
+         this.handleAyahEnded();
+       }
+     };
+     this.ayahEndCheckInterval = setInterval(checkTime, 100);
+   }
+
+   private handleAyahEnded(): void {
+     clearInterval(this.ayahEndCheckInterval);
+
+     // Repeat ayah logic
+     if (this.settings.repeatAyah) {
+       this.repeatCounter++;
+       if (this.repeatCounter < this.settings.repeatCount) {
+         this.playAyah(this.currentSurah, this.currentAyah);
+         return;
+       }
+       this.repeatCounter = 0;
+     }
+
+     // Section repeat logic
+     if (this.settings.repeatSection) {
+       const { sectionEnd } = this.settings;
+       if (this.currentAyah >= sectionEnd.ayah) {
+         // Loop back to section start
+         this.playAyah(this.settings.sectionStart.surah,
+                      this.settings.sectionStart.ayah);
+         return;
+       }
+     }
+
+     // Move to next ayah
+     this.playNextAyah();
+   }
+   ```
+
+4. **Update AudioPlayer UI** (1 hour)
+   - File: `src/components/AudioPlayer.tsx`
+   - Changes:
+     - Re-enable "Repeat Ayah" (rename from "Repeat Surah")
+     - Re-enable "Repeat Section" with ayah range inputs
+     - Add Previous/Next Ayah navigation buttons
+     - Remove the yellow warning note
+     - Show current ayah number in player
+
+5. **Add Type Definitions** (15 minutes)
+   - File: `src/types/quran.ts`
+   ```typescript
+   export interface AyahTiming {
+     ayah: number;
+     startTime: number;
+     endTime: number;
+   }
+
+   export interface SurahTimings {
+     surah: number;
+     ayahs: AyahTiming[];
+   }
+   ```
+
+**Testing Checklist**:
+- [ ] Play individual ayah from any surah
+- [ ] Repeat single ayah X times (1, 2, 3, 5, 7, 10, 20)
+- [ ] Repeat section (e.g., ayah 1-7) with each ayah repeated X times
+- [ ] Navigate between ayahs (Previous/Next buttons)
+- [ ] Timing accuracy - ayah starts/ends at correct time (±0.5s acceptable)
+- [ ] Smooth transitions between ayahs in section repeat mode
+- [ ] Works in both reading mode and memorization sessions
+- [ ] Playback speed affects ayah timing correctly
+
+**Files to Create/Modify**:
+1. `src/services/ayahTimingService.ts` (NEW)
+2. `src/services/audioService.ts` (UPDATE - major changes)
+3. `src/components/AudioPlayer.tsx` (UPDATE - UI for ayah controls)
+4. `src/types/quran.ts` (ADD AyahTiming types)
+5. `public/data/timings/*.json` (NEW - timing data files)
+
+**Alternative: Individual Ayah Files** (If timing data unavailable)
+- Use EveryAyah.com: `https://everyayah.com/data/Husary_128kbps/{surah:03d}{ayah:03d}.mp3`
+- Pros: Perfect accuracy, simpler logic
+- Cons: ~6,236 files, ~500MB-1GB storage, different reciter than Qalun
+
+---
+
+### 🎯 Other Priority Tasks (After ayah playback)
 
 #### Option 1: Complete Audio Download (High Priority)
 **Time**: ~30-60 minutes (depending on connection)
@@ -119,71 +269,16 @@ for i in {4..114}; do
 done
 ```
 
-Or use the faster ZIP method:
-```bash
-cd public/audio
-wget -O husari_qalun.zip "https://archive.org/compress/husari_qalun/formats=VBR%20MP3"
-unzip husari_qalun.zip
-rm husari_qalun.zip
-```
-
-#### Option 2: Fix Minor Code Issues (15 minutes)
-**File**: `src/app/page.tsx`
-
-Remove or implement the unused function:
-```typescript
-// Either remove lines 51-57, or connect to ayah click:
-const handleAyahClick = (ayah: Ayah) => {
-  if (memorizationMode) {
-    handleToggleAyahVisibility(ayah.aya_no);
-  }
-};
-
-// Then in QuranPageViewer:
-<QuranPageViewer
-  // ... other props
-  onAyahClick={handleAyahClick}
-/>
-```
-
-#### Option 3: Add Search by Ayah Text (1-2 hours)
+#### Option 2: Add Search by Ayah Text (1-2 hours)
 **Files to modify**:
 - `src/components/NavigationSidebar.tsx` - Add search tab
 - Use existing `quranDataService.searchAyahs()` method
 
-**Implementation**:
-1. Add "Search" tab to NavigationSidebar
-2. Create search input with Arabic keyboard support
-3. Display search results with page/surah/ayah context
-4. Click to navigate to ayah's page
-
-#### Option 4: Implement Voice Recording UI (2-3 hours)
-**New component**: `src/components/MemorizationPanel.tsx`
-
-**Features**:
-- Record button with visual feedback
-- Recording timer
-- Playback of recording with original ayah
-- Save/delete recordings
-- List of saved recordings per page
-
-**Integration**:
-- Add panel to memorization mode
-- Connect to existing `recordingService`
-- Store recordings in IndexedDB
-
-#### Option 5: Add Ayah-by-Ayah Audio (3-4 hours)
-**Challenge**: Current audio is surah-level, not ayah-level
-
-**Solutions**:
-1. **Easy**: Use everyayah.com API for ayah-level audio
-   - Example: `https://everyayah.com/data/Husary_128kbps/001001.mp3`
-   - Format: `{surah:03d}{ayah:03d}.mp3`
-
-2. **Advanced**: Create timing metadata for existing audio
-   - Requires manual timing or ML-based audio segmentation
-
-**Recommendation**: Use everyayah.com for now, can switch to Qalun when available
+#### Option 3: Progress Tracking & Statistics (2-3 hours)
+- Track which pages/surahs have been memorized
+- Show progress percentage
+- Memorization streaks
+- Review schedule based on spaced repetition
 
 ---
 
