@@ -32,12 +32,45 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     const todaySession = reviewQueueService.getOrCreateTodaySession(planId);
     setSession(todaySession);
 
-    // Auto-hide all ayahs for first page
-    if (todaySession.reviewQueue.length > 0) {
-      const firstPage = todaySession.reviewQueue[0];
-      hideAllAyahsOnPage(firstPage);
+    // Auto-hide ayahs for first page (only hide ayahs belonging to current surah)
+    if (todaySession.reviewQueue.length > 0 || todaySession.newMaterial.length > 0) {
+      const firstPage = (todaySession.reviewQueue.length > 0)
+        ? todaySession.reviewQueue[0]
+        : todaySession.newMaterial[0];
+      hideCurrentSurahAyahs(firstPage);
       setReviewStartTime(Date.now());
     }
+  };
+
+  const getCurrentSurah = (pageNumber: number): number | null => {
+    if (!session) return null;
+
+    const { quranDataService } = require('@/services/quranDataService');
+
+    // For new material, get the surah we're supposed to be learning
+    if (isNewMaterial()) {
+      // Get the next surah from new material queue
+      const firstNewPage = session.newMaterial[0];
+      if (firstNewPage) {
+        // Find what surah this new material belongs to
+        const allSurahsOnPage = quranDataService.getPageSurahs(firstNewPage);
+
+        // Get all already started surahs
+        const allProgress = memorizationPlanService.getAllProgress(planId);
+        const startedSurahs = new Set<number>();
+        allProgress.forEach((p: { pageNumber: number }) => {
+          const pageSurahs = quranDataService.getPageSurahs(p.pageNumber);
+          pageSurahs.forEach((s: number) => startedSurahs.add(s));
+        });
+
+        // Find the surah on this page that hasn't been started yet
+        const unstartedSurah = allSurahsOnPage.find((s: number) => !startedSurahs.has(s));
+        if (unstartedSurah) return unstartedSurah;
+      }
+    }
+
+    // For reviews, get the primary surah
+    return quranDataService.getPagePrimarySurah(pageNumber);
   };
 
   const hideAllAyahsOnPage = (pageNumber: number) => {
@@ -45,6 +78,27 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     if (pageInfo) {
       setHiddenAyahs(pageInfo.ayahs.map((a: { aya_no: number }) => a.aya_no));
     }
+  };
+
+  const hideCurrentSurahAyahs = (pageNumber: number) => {
+    const { quranDataService } = require('@/services/quranDataService');
+    const pageInfo = quranDataService.getPageInfo(pageNumber);
+    if (!pageInfo) return;
+
+    // Get the surah we're currently memorizing
+    const currentSurah = getCurrentSurah(pageNumber);
+    if (!currentSurah) {
+      // Fallback to hiding all ayahs
+      hideAllAyahsOnPage(pageNumber);
+      return;
+    }
+
+    // Only hide ayahs that belong to the current surah
+    const ayahsToHide = pageInfo.ayahs
+      .filter((a: { sura_no: number }) => a.sura_no === currentSurah)
+      .map((a: { aya_no: number }) => a.aya_no);
+
+    setHiddenAyahs(ayahsToHide);
   };
 
   const handleRevealAyahs = () => {
@@ -100,10 +154,10 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
       setShowGrading(false);
       setReviewStartTime(Date.now());
 
-      // Auto-hide ayahs for next page
+      // Auto-hide ayahs for next page (only current surah's ayahs)
       const nextPage = getPageAtIndex(currentIndex + 1);
       if (nextPage) {
-        hideAllAyahsOnPage(nextPage);
+        hideCurrentSurahAyahs(nextPage);
       }
     } else {
       // Session complete
@@ -193,26 +247,43 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     <div className="flex flex-col h-screen">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 p-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              {isNewMaterial() ? '✨ New Material' : '⏰ Review'} • {currentIndex + 1} of {getTotalItems()}
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {isNewMaterial() ? '✨ New Material' : '⏰ Review'} • {currentIndex + 1} of {getTotalItems()}
+              </div>
+              <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                Page {currentPage}
+              </div>
+              {(() => {
+                const { quranDataService } = require('@/services/quranDataService');
+                const surahNum = getCurrentSurah(currentPage);
+                if (surahNum) {
+                  const surahInfo = quranDataService.getSurahInfo(surahNum);
+                  if (surahInfo) {
+                    return (
+                      <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                        📖 Focusing on: {surahInfo.englishName} (Surah {surahNum})
+                      </div>
+                    );
+                  }
+                }
+                return null;
+              })()}
             </div>
-            <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-              Page {currentPage}
-            </div>
-          </div>
 
-          <button
-            onClick={() => {
-              if (confirm('Are you sure you want to exit? Your progress will be saved.')) {
-                router.push(`/memorization?planId=${planId}`);
-              }
-            }}
-            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          >
-            Exit
-          </button>
+            <button
+              onClick={() => {
+                if (confirm('Are you sure you want to exit? Your progress will be saved.')) {
+                  router.push(`/memorization?planId=${planId}`);
+                }
+              }}
+              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            >
+              Exit
+            </button>
+          </div>
         </div>
 
         {/* Progress Bar */}
@@ -274,16 +345,16 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
                   onClick={handleRevealAyahs}
                   className="py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
-                  👁️ Reveal
+                  👁️ Reveal All
                 </button>
 
                 <button
                   onClick={() => {
-                    hideAllAyahsOnPage(currentPage);
+                    hideCurrentSurahAyahs(currentPage);
                   }}
                   className="py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
-                  🙈 Hide All
+                  🙈 Hide Surah
                 </button>
 
                 <button

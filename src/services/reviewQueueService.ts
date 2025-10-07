@@ -46,40 +46,109 @@ class ReviewQueueService {
   }
 
   /**
-   * Get next page(s) for new material
+   * Get next page(s) for new material - returns pages from next surah to memorize
+   * Even if plan direction is backward, surahs are memorized from beginning to end
    */
   getNextNewMaterial(planId: string): number[] {
     const plan = memorizationPlanService.getPlan(planId);
     if (!plan) return [];
 
+    const { quranDataService } = require('./quranDataService');
     const allProgress = memorizationPlanService.getAllProgress(planId);
     const completedPages = new Set(allProgress.map(p => p.pageNumber));
 
-    // Determine starting page based on direction
-    let nextPage: number;
+    // Find next surah to memorize
+    const nextSurah = this.getNextSurahToMemorize(planId);
+    if (!nextSurah) return []; // Plan complete!
+
+    // Get all pages for this surah
+    const surahPages = quranDataService.getSurahPages(nextSurah);
+
+    // Find which pages of this surah are not yet started
+    const unstartedPages = surahPages.filter(page => !completedPages.has(page));
+
+    if (unstartedPages.length === 0) {
+      // All pages of this surah are started, move to next surah
+      return this.getNextNewMaterialForNextSurah(planId, nextSurah);
+    }
+
+    // Return pages based on daily goal
+    const ayahsPerDay = quranDataService.estimateAyahsPerDay(plan.dailyGoal.type);
+
+    // For small surahs or first session, return first unstarted page
+    // Can be expanded to return multiple pages based on daily goal
+    return [unstartedPages[0]];
+  }
+
+  /**
+   * Get the next surah number to memorize based on plan direction
+   */
+  private getNextSurahToMemorize(planId: string): number | null {
+    const plan = memorizationPlanService.getPlan(planId);
+    if (!plan) return null;
+
+    const { quranDataService } = require('./quranDataService');
+    const allProgress = memorizationPlanService.getAllProgress(planId);
+
+    // Get all started surahs
+    const startedSurahs = new Set<number>();
+    allProgress.forEach(progress => {
+      const surah = quranDataService.getPagePrimarySurah(progress.pageNumber);
+      if (surah) startedSurahs.add(surah);
+    });
+
+    // Determine next surah based on direction
     if (plan.direction === 'forward') {
-      // Find first unstarted page from beginning
-      nextPage = plan.startPage;
-      while (completedPages.has(nextPage) && nextPage <= plan.endPage) {
-        nextPage++;
+      // Forward: Start from Surah 1
+      for (let surah = 1; surah <= 114; surah++) {
+        const surahPages = quranDataService.getSurahPages(surah);
+        const allPagesStarted = surahPages.every(page =>
+          allProgress.some(p => p.pageNumber === page)
+        );
+
+        if (!allPagesStarted) {
+          return surah;
+        }
       }
     } else {
-      // Find first unstarted page from end (backward)
-      nextPage = plan.endPage;
-      while (completedPages.has(nextPage) && nextPage >= plan.startPage) {
-        nextPage--;
+      // Backward: Start from Surah 114 (Juz 30)
+      for (let surah = 114; surah >= 1; surah--) {
+        const surahPages = quranDataService.getSurahPages(surah);
+        const allPagesStarted = surahPages.every(page =>
+          allProgress.some(p => p.pageNumber === page)
+        );
+
+        if (!allPagesStarted) {
+          return surah;
+        }
       }
     }
 
-    // Check if we've reached the end
-    if ((plan.direction === 'forward' && nextPage > plan.endPage) ||
-        (plan.direction === 'backward' && nextPage < plan.startPage)) {
-      return []; // Plan complete!
+    return null; // All surahs completed
+  }
+
+  /**
+   * Helper to get material from next surah if current is complete
+   */
+  private getNextNewMaterialForNextSurah(planId: string, currentSurah: number): number[] {
+    const plan = memorizationPlanService.getPlan(planId);
+    if (!plan) return [];
+
+    const { quranDataService } = require('./quranDataService');
+
+    // Find next surah in sequence
+    const nextSurah = plan.direction === 'forward'
+      ? currentSurah + 1
+      : currentSurah - 1;
+
+    if ((plan.direction === 'forward' && nextSurah > 114) ||
+        (plan.direction === 'backward' && nextSurah < 1)) {
+      return []; // Plan complete
     }
 
-    // For now, return single page
-    // In future, could support multi-page new material based on daily goal
-    return [nextPage];
+    // Get first page of next surah
+    const surahPages = quranDataService.getSurahPages(nextSurah);
+    return surahPages.length > 0 ? [surahPages[0]] : [];
   }
 
   /**

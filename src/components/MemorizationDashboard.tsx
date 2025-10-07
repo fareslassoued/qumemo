@@ -176,10 +176,10 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-sm text-purple-600 dark:text-purple-300 font-medium">
-                  📖 Current Surah
+                  📖 Current Surah {plan.direction === 'backward' && '(Memorizing from beginning →)'}
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mt-1">
-                  {currentSurahInfo.englishName}
+                  {currentSurahInfo.number}. {currentSurahInfo.englishName}
                 </h2>
                 <div className="text-lg text-gray-600 dark:text-gray-400 mt-1">
                   {currentSurahInfo.nameArabic}
@@ -215,6 +215,12 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                 <div className="text-xs text-gray-600 dark:text-gray-400">Type</div>
               </div>
             </div>
+
+            {plan.direction === 'backward' && (
+              <div className="mt-3 text-xs text-center text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-800 rounded-lg py-2">
+                💡 Each surah is memorized from its beginning, even though your plan moves backward through the Quran
+              </div>
+            )}
 
             <div className="mt-4">
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -262,21 +268,32 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
               )}
 
               {/* New Material */}
-              {todaySummary.newMaterial.length > 0 && (
-                <div className="bg-green-50 dark:bg-green-900 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">✨</span>
-                    <div>
-                      <div className="font-semibold text-green-900 dark:text-green-100">
-                        New Material Ready
-                      </div>
-                      <div className="text-sm text-green-700 dark:text-green-300">
-                        Page {todaySummary.newMaterial.join(', ')}
+              {todaySummary.newMaterial.length > 0 && (() => {
+                const firstPage = todaySummary.newMaterial[0];
+                const surahNum = quranDataService.getPagePrimarySurah(firstPage);
+                const surahInfo = surahNum ? quranDataService.getSurahInfo(surahNum) : null;
+
+                return (
+                  <div className="bg-green-50 dark:bg-green-900 rounded-lg p-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">✨</span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-green-900 dark:text-green-100">
+                          New Material Ready
+                        </div>
+                        {surahInfo && (
+                          <div className="text-sm text-green-700 dark:text-green-300">
+                            {surahInfo.englishName} ({surahInfo.nameArabic})
+                          </div>
+                        )}
+                        <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                          Page {todaySummary.newMaterial.join(', ')}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Start Button */}
               <button
