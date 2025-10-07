@@ -66,32 +66,44 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
     progress: number;
   } | null => {
     const allProgress = memorizationPlanService.getAllProgress(plan.id);
-    if (allProgress.length === 0) return null;
 
-    // Find latest page being worked on
-    const latestProgress = allProgress
-      .filter(p => p.status !== 'new')
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
+    // Find the next surah to memorize (same logic as getNextSurahToMemorize)
+    let nextSurah: number | null = null;
 
-    if (!latestProgress) {
-      // No progress yet, show first page
-      const firstPage = plan.direction === 'forward' ? plan.startPage : plan.endPage;
-      const surahNum = quranDataService.getPagePrimarySurah(firstPage);
-      return surahNum ? {
-        ...quranDataService.getSurahInfo(surahNum)!,
-        totalPages: quranDataService.getSurahPages(surahNum).length,
-        completedPages: 0,
-        progress: 0,
-      } : null;
+    if (plan.direction === 'forward') {
+      // Forward: Start from Surah 1
+      for (let surah = 1; surah <= 114; surah++) {
+        const surahPages = quranDataService.getSurahPages(surah);
+        const allPagesStarted = surahPages.every(page =>
+          allProgress.some(p => p.pageNumber === page)
+        );
+
+        if (!allPagesStarted) {
+          nextSurah = surah;
+          break;
+        }
+      }
+    } else {
+      // Backward: Start from Surah 114 (Juz 30)
+      for (let surah = 114; surah >= 1; surah--) {
+        const surahPages = quranDataService.getSurahPages(surah);
+        const allPagesStarted = surahPages.every(page =>
+          allProgress.some(p => p.pageNumber === page)
+        );
+
+        if (!allPagesStarted) {
+          nextSurah = surah;
+          break;
+        }
+      }
     }
 
-    const surahNum = quranDataService.getPagePrimarySurah(latestProgress.pageNumber);
-    if (!surahNum) return null;
+    if (!nextSurah) return null;
 
-    const surahInfo = quranDataService.getSurahInfo(surahNum);
+    const surahInfo = quranDataService.getSurahInfo(nextSurah);
     if (!surahInfo) return null;
 
-    const surahPages = quranDataService.getSurahPages(surahNum);
+    const surahPages = quranDataService.getSurahPages(nextSurah);
     const completedPages = allProgress.filter(p =>
       surahPages.includes(p.pageNumber) && p.status === 'mastered'
     ).length;
@@ -270,7 +282,8 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
               {/* New Material */}
               {todaySummary.newMaterial.length > 0 && (() => {
                 const firstPage = todaySummary.newMaterial[0];
-                const surahNum = quranDataService.getPagePrimarySurah(firstPage);
+                // Use the same logic as getCurrentSurahInfo to find the correct next surah
+                const surahNum = currentSurahInfo?.number || null;
                 const surahInfo = surahNum ? quranDataService.getSurahInfo(surahNum) : null;
 
                 return (

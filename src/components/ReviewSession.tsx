@@ -8,6 +8,7 @@ import { reviewQueueService } from '@/services/reviewQueueService';
 import { spacedRepetitionService } from '@/services/spacedRepetitionService';
 import { StudySession, Recording } from '@/types/memorization';
 import { useRouter } from 'next/navigation';
+import { getCurrentSurahForPage } from '@/utils/surahDetection';
 
 interface ReviewSessionProps {
   planId: string;
@@ -17,8 +18,9 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   const router = useRouter();
   const [session, setSession] = useState<StudySession | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [viewPage, setViewPage] = useState<number | null>(null); // Current page being viewed
+  const [memorizationAyahsHidden, setMemorizationAyahsHidden] = useState(true);
   const [showGrading, setShowGrading] = useState(false);
-  const [hiddenAyahs, setHiddenAyahs] = useState<number[]>([]);
   const [sessionStartTime] = useState(Date.now());
   const [reviewStartTime, setReviewStartTime] = useState<number | null>(null);
   const [showRecorder, setShowRecorder] = useState(false);
@@ -32,12 +34,12 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     const todaySession = reviewQueueService.getOrCreateTodaySession(planId);
     setSession(todaySession);
 
-    // Auto-hide ayahs for first page (only hide ayahs belonging to current surah)
+    // Set initial view page
     if (todaySession.reviewQueue.length > 0 || todaySession.newMaterial.length > 0) {
       const firstPage = (todaySession.reviewQueue.length > 0)
         ? todaySession.reviewQueue[0]
         : todaySession.newMaterial[0];
-      hideCurrentSurahAyahs(firstPage);
+      setViewPage(firstPage);
       setReviewStartTime(Date.now());
     }
   };
@@ -46,26 +48,40 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     if (!session) return null;
 
     const { quranDataService } = require('@/services/quranDataService');
+    const plan = memorizationPlanService.getPlan(planId);
+    if (!plan) return null;
 
-    // For new material, get the surah we're supposed to be learning
-    if (isNewMaterial()) {
-      // Get the next surah from new material queue
-      const firstNewPage = session.newMaterial[0];
-      if (firstNewPage) {
-        // Find what surah this new material belongs to
-        const allSurahsOnPage = quranDataService.getPageSurahs(firstNewPage);
+    // Check if this page is part of new material queue
+    const isPageInNewMaterial = session.newMaterial.includes(pageNumber);
 
-        // Get all already started surahs
-        const allProgress = memorizationPlanService.getAllProgress(planId);
-        const startedSurahs = new Set<number>();
-        allProgress.forEach((p: { pageNumber: number }) => {
-          const pageSurahs = quranDataService.getPageSurahs(p.pageNumber);
-          pageSurahs.forEach((s: number) => startedSurahs.add(s));
-        });
+    if (isPageInNewMaterial) {
+      // For new material, find the next unstarted surah based on plan direction
+      const allProgress = memorizationPlanService.getAllProgress(planId);
 
-        // Find the surah on this page that hasn't been started yet
-        const unstartedSurah = allSurahsOnPage.find((s: number) => !startedSurahs.has(s));
-        if (unstartedSurah) return unstartedSurah;
+      if (plan.direction === 'forward') {
+        // Forward: Start from Surah 1
+        for (let surah = 1; surah <= 114; surah++) {
+          const surahPages = quranDataService.getSurahPages(surah);
+          const allPagesStarted = surahPages.every(page =>
+            allProgress.some(p => p.pageNumber === page)
+          );
+
+          if (!allPagesStarted) {
+            return surah;
+          }
+        }
+      } else {
+        // Backward: Start from Surah 114
+        for (let surah = 114; surah >= 1; surah--) {
+          const surahPages = quranDataService.getSurahPages(surah);
+          const allPagesStarted = surahPages.every(page =>
+            allProgress.some(p => p.pageNumber === page)
+          );
+
+          if (!allPagesStarted) {
+            return surah;
+          }
+        }
       }
     }
 
@@ -73,36 +89,26 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     return quranDataService.getPagePrimarySurah(pageNumber);
   };
 
-  const hideAllAyahsOnPage = (pageNumber: number) => {
-    const pageInfo = require('@/services/quranDataService').quranDataService.getPageInfo(pageNumber);
-    if (pageInfo) {
-      setHiddenAyahs(pageInfo.ayahs.map((a: { aya_no: number }) => a.aya_no));
-    }
-  };
+  // Calculate which ayahs to hide on the given page
+  const getHiddenAyahsForPage = (pageNumber: number): number[] => {
+    if (!memorizationAyahsHidden) return [];
 
-  const hideCurrentSurahAyahs = (pageNumber: number) => {
     const { quranDataService } = require('@/services/quranDataService');
     const pageInfo = quranDataService.getPageInfo(pageNumber);
-    if (!pageInfo) return;
+    if (!pageInfo) return [];
 
-    // Get the surah we're currently memorizing
-    const currentSurah = getCurrentSurah(pageNumber);
-    if (!currentSurah) {
-      // Fallback to hiding all ayahs
-      hideAllAyahsOnPage(pageNumber);
-      return;
-    }
+    // Get the session page (what we're supposed to be memorizing)
+    const sessionPage = getPageAtIndex(currentIndex);
+    if (!sessionPage) return [];
 
-    // Only hide ayahs that belong to the current surah
-    const ayahsToHide = pageInfo.ayahs
-      .filter((a: { sura_no: number }) => a.sura_no === currentSurah)
+    // Get the surah we're memorizing in this session
+    const sessionSurah = getCurrentSurah(sessionPage);
+    if (!sessionSurah) return [];
+
+    // Hide only ayahs belonging to the session surah
+    return pageInfo.ayahs
+      .filter((a: { sura_no: number }) => a.sura_no === sessionSurah)
       .map((a: { aya_no: number }) => a.aya_no);
-
-    setHiddenAyahs(ayahsToHide);
-  };
-
-  const handleRevealAyahs = () => {
-    setHiddenAyahs([]);
   };
 
   const handleReadyToGrade = () => {
@@ -153,11 +159,12 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
       setCurrentIndex(currentIndex + 1);
       setShowGrading(false);
       setReviewStartTime(Date.now());
+      setMemorizationAyahsHidden(true); // Reset to hidden for next item
 
-      // Auto-hide ayahs for next page (only current surah's ayahs)
+      // Set view page to next session page
       const nextPage = getPageAtIndex(currentIndex + 1);
       if (nextPage) {
-        hideCurrentSurahAyahs(nextPage);
+        setViewPage(nextPage);
       }
     } else {
       // Session complete
@@ -179,7 +186,7 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   };
 
   const getCurrentPage = (): number | null => {
-    return getPageAtIndex(currentIndex);
+    return viewPage;
   };
 
   const getPageAtIndex = (index: number): number | null => {
@@ -302,15 +309,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
         <QuranPageViewer
           pageNumber={currentPage}
           memorizationMode={true}
-          hiddenAyahs={hiddenAyahs}
-          onAyahClick={(ayah) => {
-            // Toggle ayah visibility
-            setHiddenAyahs(prev =>
-              prev.includes(ayah.aya_no)
-                ? prev.filter(n => n !== ayah.aya_no)
-                : [...prev, ayah.aya_no]
-            );
-          }}
+          hiddenAyahs={currentPage ? getHiddenAyahsForPage(currentPage) : []}
+          onPageChange={(newPage) => setViewPage(newPage)}
         />
       </div>
 
@@ -340,21 +340,12 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <button
-                  onClick={handleRevealAyahs}
+                  onClick={() => setMemorizationAyahsHidden(!memorizationAyahsHidden)}
                   className="py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
-                  👁️ Reveal All
-                </button>
-
-                <button
-                  onClick={() => {
-                    hideCurrentSurahAyahs(currentPage);
-                  }}
-                  className="py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                >
-                  🙈 Hide Surah
+                  {memorizationAyahsHidden ? '👁️ Show' : '🙈 Hide'} Ayahs
                 </button>
 
                 <button
