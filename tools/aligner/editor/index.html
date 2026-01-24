@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quran Timing Correction Tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            flex: 1;
+        }
+
+        .surah-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .surah-selector select {
+            padding: 8px 16px;
+            background: #0f3460;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .load-btn {
+            padding: 8px 16px;
+            background: #e94560;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .load-btn:hover {
+            background: #ff6b8a;
+        }
+
+        .load-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .surah-info {
+            font-size: 1.1rem;
+            color: #94a3b8;
+        }
+
+        .status-indicator {
+            display: flex;
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+
+        .status-indicator span {
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .status-indicator .loaded {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-indicator .not-loaded {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Audio Player */
+        .audio-section {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .audio-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .play-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #e94560;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .play-btn:hover {
+            background: #ff6b8a;
+        }
+
+        .play-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .seek-slider {
+            flex: 1;
+            min-width: 200px;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #0f3460;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .seek-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .time-display {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            min-width: 140px;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .speed-control select {
+            padding: 5px;
+            background: #0f3460;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+        }
+
+        /* Navigation */
+        .nav-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            padding: 10px 15px;
+            background: #16213e;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .jump-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .jump-control input {
+            width: 60px;
+            padding: 8px;
+            background: #0f3460;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            text-align: center;
+        }
+
+        .jump-control button {
+            padding: 8px 12px;
+            background: #0f3460;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .filter-control select {
+            padding: 8px;
+            background: #0f3460;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+        }
+
+        /* Ayah List */
+        .ayah-list {
+            max-height: calc(100vh - 350px);
+            overflow-y: auto;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .ayah-item {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-right: 4px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .ayah-item:hover {
+            background: #1a4a7a;
+        }
+
+        .ayah-item.modified {
+            border-right-color: #f59e0b;
+        }
+
+        .ayah-item.playing {
+            border-right-color: #e94560;
+            background: #1a4a7a;
+        }
+
+        .ayah-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .ayah-number {
+            background: #e94560;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+        }
+
+        .ayah-text {
+            font-family: 'KFGQPC Uthman Taha Naskh', 'Traditional Arabic', serif;
+            font-size: 1.4rem;
+            line-height: 2;
+            text-align: right;
+            margin-bottom: 15px;
+        }
+
+        .timing-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .timing-input {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .timing-input label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .timing-input input {
+            width: 80px;
+            padding: 6px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #fff;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        .timing-input input.modified {
+            border-color: #f59e0b;
+        }
+
+        .ayah-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ayah-actions button {
+            padding: 6px 12px;
+            background: #333;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .ayah-actions button:hover {
+            background: #444;
+        }
+
+        .words-toggle {
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.85rem;
+            user-select: none;
+        }
+
+        .words-section {
+            margin-top: 10px;
+            padding: 10px;
+            background: #1a1a2e;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .words-section.expanded {
+            display: block;
+        }
+
+        .word-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin: 5px;
+            padding: 5px 10px;
+            background: #0f3460;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .word-item .word-text {
+            font-family: 'KFGQPC Uthman Taha Naskh', 'Traditional Arabic', serif;
+        }
+
+        .word-item input {
+            width: 55px;
+            padding: 3px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 3px;
+            color: #fff;
+            text-align: center;
+            font-family: monospace;
+            font-size: 0.75rem;
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .save-btn {
+            padding: 12px 24px;
+            background: #10b981;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        .save-btn:hover {
+            background: #059669;
+        }
+
+        .save-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .status {
+            color: #94a3b8;
+        }
+
+        .path-info {
+            font-size: 0.8rem;
+            color: #666;
+            text-align: left;
+            direction: ltr;
+        }
+
+        /* Keyboard shortcuts tooltip */
+        .shortcuts {
+            font-size: 0.8rem;
+            color: #666;
+            text-align: left;
+            direction: ltr;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #94a3b8;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+
+        /* Error message */
+        .error-msg {
+            color: #ef4444;
+            padding: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Quran Timing Correction Tool</h1>
+            <div class="surah-selector">
+                <label>Surah:</label>
+                <select id="surahSelect">
+                    <option value="">Select Surah...</option>
+                </select>
+                <button class="load-btn" id="loadBtn" onclick="loadSurah()">Load</button>
+            </div>
+            <div class="status-indicator">
+                <span id="jsonStatus" class="not-loaded">JSON: Not loaded</span>
+                <span id="audioStatus" class="not-loaded">Audio: Not loaded</span>
+            </div>
+        </div>
+
+        <!-- Audio Player -->
+        <div class="audio-section">
+            <div class="audio-controls">
+                <button class="play-btn" id="playBtn" onclick="togglePlay()" disabled>
+                    ▶
+                </button>
+                <input type="range" class="seek-slider" id="seekSlider" value="0" min="0" max="100" step="0.1" disabled>
+                <div class="time-display" id="timeDisplay">00:00.000 / 00:00.000</div>
+                <div class="speed-control">
+                    <label>Speed:</label>
+                    <select id="speedSelect" onchange="setSpeed(this.value)">
+                        <option value="0.5">0.5x</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="1" selected>1.0x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="nav-section">
+            <div class="jump-control">
+                <label>Jump to Ayah:</label>
+                <input type="number" id="jumpInput" min="1" placeholder="#">
+                <button onclick="jumpToAyah()">Go</button>
+            </div>
+            <div class="filter-control">
+                <label>Filter:</label>
+                <select id="filterSelect" onchange="filterAyahs()">
+                    <option value="all">All</option>
+                    <option value="modified">Modified Only</option>
+                </select>
+            </div>
+            <div class="shortcuts">
+                Shortcuts: Space=Play/Pause, ←/→=Seek ±100ms, Shift+←/→=±1s
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-msg" id="errorMsg" style="display: none;"></div>
+
+        <!-- Ayah List -->
+        <div class="ayah-list" id="ayahList">
+            <div class="empty-state">Select a surah and click Load to begin</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <button class="save-btn" id="saveBtn" onclick="saveJSON()" disabled>
+                Save Corrected JSON
+            </button>
+            <div class="status" id="status">Modified: 0/0 ayahs</div>
+            <div class="path-info" id="pathInfo"></div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer"></audio>
+
+    <script>
+        // Configuration - adjust these paths as needed
+        const CONFIG = {
+            // Base path for the aligner tool (relative to where this HTML is served)
+            basePath: '..',
+            // Paths relative to basePath
+            outputPath: 'output',
+            outputFixedPath: 'output_fixed',
+            cachePath: 'cache/wav',
+            cacheMP3Path: 'cache/mp3',
+        };
+
+        // State
+        let data = null;
+        let originalData = null;
+        let audio = document.getElementById('audioPlayer');
+        let currentAyahIndex = -1;
+        let modifiedAyahs = new Set();
+        let currentSurah = null;
+
+        // DOM elements
+        const playBtn = document.getElementById('playBtn');
+        const seekSlider = document.getElementById('seekSlider');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const ayahList = document.getElementById('ayahList');
+        const saveBtn = document.getElementById('saveBtn');
+        const status = document.getElementById('status');
+        const jumpInput = document.getElementById('jumpInput');
+        const filterSelect = document.getElementById('filterSelect');
+        const surahSelect = document.getElementById('surahSelect');
+        const loadBtn = document.getElementById('loadBtn');
+        const jsonStatus = document.getElementById('jsonStatus');
+        const audioStatus = document.getElementById('audioStatus');
+        const errorMsg = document.getElementById('errorMsg');
+        const pathInfo = document.getElementById('pathInfo');
+
+        // Surah names
+        const SURAH_NAMES = [
+            '', // Index 0 unused
+            'الفَاتِحة', 'البَقَرَة', 'آل عِمْرَان', 'النِّسَاء', 'المَائِدَة',
+            'الأَنْعَام', 'الأَعْرَاف', 'الأَنْفَال', 'التَّوْبَة', 'يُونُس',
+            'هُود', 'يُوسُف', 'الرَّعْد', 'إِبْرَاهِيم', 'الحِجْر',
+            'النَّحْل', 'الإِسْرَاء', 'الكَهْف', 'مَرْيَم', 'طه',
+            'الأَنْبِيَاء', 'الحَجّ', 'المُؤْمِنُون', 'النُّور', 'الفُرْقَان',
+            'الشُّعَرَاء', 'النَّمْل', 'القَصَص', 'العَنْكَبُوت', 'الرُّوم',
+            'لُقْمَان', 'السَّجْدَة', 'الأَحْزَاب', 'سَبَأ', 'فَاطِر',
+            'يس', 'الصَّافَّات', 'ص', 'الزُّمَر', 'غَافِر',
+            'فُصِّلَت', 'الشُّورَى', 'الزُّخْرُف', 'الدُّخَان', 'الجَاثِيَة',
+            'الأَحْقَاف', 'مُحَمَّد', 'الفَتْح', 'الحُجُرَات', 'ق',
+            'الذَّارِيَات', 'الطُّور', 'النَّجْم', 'القَمَر', 'الرَّحْمَٰن',
+            'الوَاقِعَة', 'الحَدِيد', 'المُجَادَلَة', 'الحَشْر', 'المُمْتَحَنَة',
+            'الصَّفّ', 'الجُمُعَة', 'المُنَافِقُون', 'التَّغَابُن', 'الطَّلَاق',
+            'التَّحْرِيم', 'المُلْك', 'القَلَم', 'الحَاقَّة', 'المَعَارِج',
+            'نُوح', 'الجِنّ', 'المُزَّمِّل', 'المُدَّثِّر', 'القِيَامَة',
+            'الإِنْسَان', 'المُرْسَلَات', 'النَّبَأ', 'النَّازِعَات', 'عَبَسَ',
+            'التَّكْوِير', 'الانْفِطَار', 'المُطَفِّفِين', 'الانْشِقَاق', 'البُرُوج',
+            'الطَّارِق', 'الأَعْلَى', 'الغَاشِيَة', 'الفَجْر', 'البَلَد',
+            'الشَّمْس', 'اللَّيْل', 'الضُّحَى', 'الشَّرْح', 'التِّين',
+            'العَلَق', 'القَدْر', 'البَيِّنَة', 'الزَّلْزَلَة', 'العَادِيَات',
+            'القَارِعَة', 'التَّكَاثُر', 'العَصْر', 'الهُمَزَة', 'الفِيل',
+            'قُرَيْش', 'المَاعُون', 'الكَوْثَر', 'الكَافِرُون', 'النَّصْر',
+            'المَسَد', 'الإِخْلَاص', 'الفَلَق', 'النَّاس'
+        ];
+
+        // Initialize surah dropdown
+        function initSurahSelect() {
+            for (let i = 1; i <= 114; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `${i}. ${SURAH_NAMES[i]}`;
+                surahSelect.appendChild(option);
+            }
+        }
+
+        // Get file paths for a surah
+        function getPaths(surahNo) {
+            const padded = String(surahNo).padStart(3, '0');
+            return {
+                json: `${CONFIG.basePath}/${CONFIG.outputPath}/${padded}_timings.json`,
+                jsonFixed: `${CONFIG.basePath}/${CONFIG.outputFixedPath}/${padded}_timings_fixed.json`,
+                wav: `${CONFIG.basePath}/${CONFIG.cachePath}/${padded}.wav`,
+                mp3: `${CONFIG.basePath}/${CONFIG.cacheMP3Path}/${padded}.mp3`,
+            };
+        }
+
+        // Load surah data and audio
+        async function loadSurah() {
+            const surahNo = parseInt(surahSelect.value);
+            if (!surahNo) {
+                showError('Please select a surah');
+                return;
+            }
+
+            currentSurah = surahNo;
+            const paths = getPaths(surahNo);
+
+            hideError();
+            loadBtn.disabled = true;
+            loadBtn.textContent = 'Loading...';
+
+            // Update path info
+            pathInfo.textContent = `Paths: ${paths.json} | ${paths.wav}`;
+
+            // Load JSON
+            try {
+                // Try fixed version first, then original
+                let response = await fetch(paths.jsonFixed);
+                if (!response.ok) {
+                    response = await fetch(paths.json);
+                }
+
+                if (!response.ok) {
+                    throw new Error(`JSON not found: ${paths.json}`);
+                }
+
+                data = await response.json();
+                originalData = JSON.parse(JSON.stringify(data));
+                modifiedAyahs.clear();
+
+                jsonStatus.textContent = 'JSON: Loaded';
+                jsonStatus.className = 'loaded';
+
+                renderAyahs();
+                updateStatus();
+                saveBtn.disabled = true;
+
+            } catch (err) {
+                showError(`Failed to load JSON: ${err.message}`);
+                jsonStatus.textContent = 'JSON: Error';
+                jsonStatus.className = 'not-loaded';
+                loadBtn.disabled = false;
+                loadBtn.textContent = 'Load';
+                return;
+            }
+
+            // Load audio (try WAV first, then MP3)
+            try {
+                // Try WAV first
+                let audioUrl = paths.wav;
+                let audioResponse = await fetch(audioUrl, { method: 'HEAD' });
+
+                if (!audioResponse.ok) {
+                    // Try MP3
+                    audioUrl = paths.mp3;
+                    audioResponse = await fetch(audioUrl, { method: 'HEAD' });
+                }
+
+                if (!audioResponse.ok) {
+                    throw new Error(`Audio not found: ${paths.wav} or ${paths.mp3}`);
+                }
+
+                audio.src = audioUrl;
+                audio.load();
+
+                audio.onloadedmetadata = () => {
+                    seekSlider.disabled = false;
+                    playBtn.disabled = false;
+                    seekSlider.max = audio.duration;
+                    updateTimeDisplay();
+
+                    audioStatus.textContent = 'Audio: Loaded';
+                    audioStatus.className = 'loaded';
+                };
+
+                audio.onerror = () => {
+                    showError('Failed to load audio file');
+                    audioStatus.textContent = 'Audio: Error';
+                    audioStatus.className = 'not-loaded';
+                };
+
+            } catch (err) {
+                showError(`Audio: ${err.message}`);
+                audioStatus.textContent = 'Audio: Not found';
+                audioStatus.className = 'not-loaded';
+            }
+
+            loadBtn.disabled = false;
+            loadBtn.textContent = 'Load';
+        }
+
+        // Show/hide error
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+        }
+
+        function hideError() {
+            errorMsg.style.display = 'none';
+        }
+
+        // Render ayah list
+        function renderAyahs() {
+            if (!data || !data.ayahs) {
+                ayahList.innerHTML = '<div class="empty-state">No ayahs found</div>';
+                return;
+            }
+
+            const filter = filterSelect.value;
+            let ayahs = data.ayahs;
+
+            if (filter === 'modified') {
+                ayahs = ayahs.filter((_, i) => modifiedAyahs.has(i));
+            }
+
+            ayahList.innerHTML = ayahs.map((ayah, displayIdx) => {
+                const realIdx = data.ayahs.indexOf(ayah);
+                const isModified = modifiedAyahs.has(realIdx);
+                const isPlaying = realIdx === currentAyahIndex;
+
+                return `
+                    <div class="ayah-item ${isModified ? 'modified' : ''} ${isPlaying ? 'playing' : ''}"
+                         data-index="${realIdx}" id="ayah-${realIdx}">
+                        <div class="ayah-header">
+                            <span class="ayah-number">Ayah ${ayah.aya_no}</span>
+                        </div>
+                        <div class="ayah-text">${ayah.aya_text}</div>
+                        <div class="timing-row">
+                            <div class="timing-input">
+                                <label>Start:</label>
+                                <input type="number"
+                                       value="${Math.round((ayah.start_time || 0) * 1000)}"
+                                       onchange="updateTiming(${realIdx}, 'start_time', this.value)"
+                                       class="${isStartModified(realIdx) ? 'modified' : ''}">
+                                <span>ms</span>
+                            </div>
+                            <div class="timing-input">
+                                <label>End:</label>
+                                <input type="number"
+                                       value="${Math.round((ayah.end_time || 0) * 1000)}"
+                                       onchange="updateTiming(${realIdx}, 'end_time', this.value)"
+                                       class="${isEndModified(realIdx) ? 'modified' : ''}">
+                                <span>ms</span>
+                            </div>
+                            <div class="ayah-actions">
+                                <button onclick="playAyah(${realIdx})">▶ Play</button>
+                                <button onclick="markStart(${realIdx})">Mark Start</button>
+                                <button onclick="markEnd(${realIdx})">Mark End</button>
+                            </div>
+                            <span class="words-toggle" onclick="toggleWords(${realIdx})">
+                                ▼ Show Words (${ayah.word_timings?.length || 0})
+                            </span>
+                        </div>
+                        <div class="words-section" id="words-${realIdx}">
+                            ${renderWords(ayah, realIdx)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderWords(ayah, ayahIdx) {
+            if (!ayah.word_timings || ayah.word_timings.length === 0) {
+                return '<div style="color: #666">No word timings</div>';
+            }
+
+            return ayah.word_timings.map((word, wordIdx) => `
+                <div class="word-item">
+                    <span class="word-text">${word.word}</span>
+                    <input type="number" value="${Math.round((word.start || 0) * 1000)}"
+                           onchange="updateWordTiming(${ayahIdx}, ${wordIdx}, 'start', this.value)"
+                           title="Start (ms)">
+                    <span>-</span>
+                    <input type="number" value="${Math.round((word.end || 0) * 1000)}"
+                           onchange="updateWordTiming(${ayahIdx}, ${wordIdx}, 'end', this.value)"
+                           title="End (ms)">
+                </div>
+            `).join('');
+        }
+
+        function isStartModified(idx) {
+            return originalData &&
+                   data.ayahs[idx].start_time !== originalData.ayahs[idx].start_time;
+        }
+
+        function isEndModified(idx) {
+            return originalData &&
+                   data.ayahs[idx].end_time !== originalData.ayahs[idx].end_time;
+        }
+
+        function toggleWords(idx) {
+            const el = document.getElementById(`words-${idx}`);
+            el.classList.toggle('expanded');
+        }
+
+        // Timing updates
+        function updateTiming(idx, field, value) {
+            const timeInSeconds = parseInt(value) / 1000;
+            data.ayahs[idx][field] = timeInSeconds;
+            modifiedAyahs.add(idx);
+            updateStatus();
+            saveBtn.disabled = false;
+            renderAyahs();
+        }
+
+        function updateWordTiming(ayahIdx, wordIdx, field, value) {
+            const timeInSeconds = parseInt(value) / 1000;
+            data.ayahs[ayahIdx].word_timings[wordIdx][field] = timeInSeconds;
+            modifiedAyahs.add(ayahIdx);
+            updateStatus();
+            saveBtn.disabled = false;
+        }
+
+        function markStart(idx) {
+            if (!audio.src) return;
+            data.ayahs[idx].start_time = audio.currentTime;
+            modifiedAyahs.add(idx);
+            updateStatus();
+            saveBtn.disabled = false;
+            renderAyahs();
+        }
+
+        function markEnd(idx) {
+            if (!audio.src) return;
+            data.ayahs[idx].end_time = audio.currentTime;
+            modifiedAyahs.add(idx);
+            updateStatus();
+            saveBtn.disabled = false;
+            renderAyahs();
+        }
+
+        // Audio controls
+        function togglePlay() {
+            if (audio.paused) {
+                audio.play();
+                playBtn.textContent = '⏸';
+            } else {
+                audio.pause();
+                playBtn.textContent = '▶';
+            }
+        }
+
+        function playAyah(idx) {
+            if (!audio.src || !data) return;
+            const ayah = data.ayahs[idx];
+            audio.currentTime = ayah.start_time || 0;
+            audio.play();
+            playBtn.textContent = '⏸';
+            currentAyahIndex = idx;
+            renderAyahs();
+            scrollToAyah(idx);
+        }
+
+        function setSpeed(speed) {
+            audio.playbackRate = parseFloat(speed);
+        }
+
+        function updateTimeDisplay() {
+            const current = formatTime(audio.currentTime);
+            const total = formatTime(audio.duration || 0);
+            timeDisplay.textContent = `${current} / ${total}`;
+            seekSlider.value = audio.currentTime;
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+        }
+
+        // Navigation
+        function jumpToAyah() {
+            const num = parseInt(jumpInput.value);
+            if (!data || isNaN(num)) return;
+
+            const idx = data.ayahs.findIndex(a => a.aya_no === num);
+            if (idx >= 0) {
+                scrollToAyah(idx);
+                playAyah(idx);
+            }
+        }
+
+        function scrollToAyah(idx) {
+            const el = document.getElementById(`ayah-${idx}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function filterAyahs() {
+            renderAyahs();
+        }
+
+        function updateStatus() {
+            if (!data) {
+                status.textContent = 'Modified: 0/0 ayahs';
+                return;
+            }
+            status.textContent = `Modified: ${modifiedAyahs.size}/${data.ayahs.length} ayahs`;
+        }
+
+        // Save corrected JSON
+        function saveJSON() {
+            if (!data || !currentSurah) return;
+
+            const paths = getPaths(currentSurah);
+            const filename = `${String(currentSurah).padStart(3, '0')}_timings_fixed.json`;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+
+            URL.revokeObjectURL(url);
+
+            // Update path info to show where to save
+            pathInfo.textContent = `Save to: ${CONFIG.basePath}/${CONFIG.outputFixedPath}/${filename}`;
+        }
+
+        // Audio events
+        audio.ontimeupdate = () => {
+            updateTimeDisplay();
+
+            // Highlight current ayah
+            if (data) {
+                const time = audio.currentTime;
+                const idx = data.ayahs.findIndex(a =>
+                    time >= (a.start_time || 0) && time < (a.end_time || 0)
+                );
+                if (idx !== currentAyahIndex) {
+                    currentAyahIndex = idx;
+                    renderAyahs();
+                }
+            }
+        };
+
+        audio.onended = () => {
+            playBtn.textContent = '▶';
+        };
+
+        seekSlider.oninput = () => {
+            audio.currentTime = parseFloat(seekSlider.value);
+        };
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    audio.currentTime = Math.max(0, audio.currentTime - (e.shiftKey ? 1 : 0.1));
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    audio.currentTime = Math.min(audio.duration, audio.currentTime + (e.shiftKey ? 1 : 0.1));
+                    break;
+            }
+        });
+
+        // Handle Enter in jump input
+        jumpInput.addEventListener('keydown', (e) => {
+            if (e.code === 'Enter') {
+                jumpToAyah();
+            }
+        });
+
+        // Initialize
+        initSurahSelect();
+    </script>
+</body>
+</html>
