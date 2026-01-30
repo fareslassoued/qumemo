@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Quran Audio Aligner - CTC forced alignment for Qaloon recitation.
+Quran Audio Aligner - Whisper/CTC alignment for Qaloon recitation.
 
 Usage:
     uv run python aligner.py --surah 1
     uv run python aligner.py --surah 1 2 3
     uv run python aligner.py --surah 1-10
     uv run python aligner.py --surah all --export-hf
+    uv run python aligner.py --surah 1 --aligner ctc  # Use CTC instead of Whisper
 """
 
 import argparse
@@ -14,14 +15,60 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Protocol
 
 from tqdm import tqdm
 
 from src.audio_processor import AudioProcessor
-from src.ctc_aligner import CTCAligner
 from src.output_formatter import OutputFormatter
 from src.utils import parse_surah_range, setup_logging
+
+
+class Aligner(Protocol):
+    """Protocol for aligners."""
+
+    def align_surah(
+        self,
+        audio_path: Path,
+        ayahs: List[Dict[str, Any]],
+        surah_no: int,
+        skip_istiiadha: bool,
+    ) -> List[Dict[str, Any]]:
+        """Align surah audio with ayahs."""
+        ...
+
+
+def create_aligner(
+    aligner_type: str,
+    device: str | None,
+    romanize: bool,
+    istiiadha_offset: float | None,
+) -> Aligner:
+    """
+    Create an aligner instance based on type.
+
+    Args:
+        aligner_type: 'whisper' or 'ctc'
+        device: 'cuda' or 'cpu'
+        romanize: Whether to romanize Arabic (CTC only)
+        istiiadha_offset: Custom offset or None for auto
+
+    Returns:
+        Aligner instance
+    """
+    if aligner_type == "ctc":
+        from src.ctc_aligner import CTCAligner
+        return CTCAligner(
+            device=device,
+            romanize=romanize,
+            istiiadha_offset=istiiadha_offset,
+        )
+    else:  # whisper (default)
+        from src.whisper_aligner import WhisperAligner
+        return WhisperAligner(
+            device=device,
+            istiiadha_offset=istiiadha_offset,
+        )
 
 # Path to Quran data
 QURAN_DATA_PATH = Path(__file__).parent.parent.parent / "src" / "data" / "quran" / "QaloonData_v10.json"
@@ -55,7 +102,7 @@ def process_surah(
     surah_no: int,
     quran_data: List[Dict],
     audio_processor: AudioProcessor,
-    aligner: CTCAligner,
+    aligner: Aligner,
     formatter: OutputFormatter,
     skip_existing: bool = False,
     logger: logging.Logger = None,
@@ -90,8 +137,8 @@ def process_surah(
         log.info(f"  Audio duration: {duration:.1f}s")
 
         # Run alignment
-        log.info("  Running CTC alignment...")
-        aligned_ayahs = aligner.align_surah(wav_path, ayahs)
+        log.info("  Running alignment...")
+        aligned_ayahs = aligner.align_surah(wav_path, ayahs, surah_no=surah_no, skip_istiiadha=True)
 
         # Save output
         output_path = formatter.save_surah_json(
@@ -112,7 +159,7 @@ def process_surah(
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Quran Audio Aligner - CTC forced alignment for Qaloon recitation",
+        description="Quran Audio Aligner - Whisper/CTC alignment for Qaloon recitation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -121,6 +168,7 @@ Examples:
   uv run python aligner.py --surah 1-10
   uv run python aligner.py --surah all --skip-existing
   uv run python aligner.py --surah all --export-hf
+  uv run python aligner.py --surah 1 --aligner ctc   # Use CTC instead of Whisper
         """,
     )
 
@@ -130,6 +178,12 @@ Examples:
         default=["1"],
         help="Surah number(s) to process. Use 'all' for all surahs, "
              "ranges like '1-10', or lists like '1 2 3'",
+    )
+    parser.add_argument(
+        "--aligner",
+        choices=["whisper", "ctc"],
+        default="whisper",
+        help="Aligner to use: 'whisper' (Quran-tuned, handles Madd Lazem) or 'ctc' (wav2vec2). Default: whisper",
     )
     parser.add_argument(
         "--device",
@@ -151,6 +205,22 @@ Examples:
         "--force",
         action="store_true",
         help="Force re-download and re-process audio",
+    )
+    parser.add_argument(
+        "--istiiadha-offset",
+        type=float,
+        default=11.0,
+        help="Seconds to skip at start for isti'adha+basmala (default: 11.0, auto per surah if not specified)",
+    )
+    parser.add_argument(
+        "--no-istiiadha",
+        action="store_true",
+        help="Don't skip isti'adha at the start",
+    )
+    parser.add_argument(
+        "--no-romanize",
+        action="store_true",
+        help="Disable Arabic romanization (may reduce accuracy)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -187,8 +257,24 @@ Examples:
     # Initialize components
     base_dir = Path(__file__).parent
     audio_processor = AudioProcessor(cache_dir=base_dir / "cache")
-    aligner = CTCAligner(device=args.device)
+
+    # Determine offset: None = auto per surah, 0.0 = no offset, or custom value
+    custom_offset = None
+    if args.no_istiiadha:
+        custom_offset = 0.0
+    elif args.istiiadha_offset != 11.0:  # Non-default value specified
+        custom_offset = args.istiiadha_offset
+
+    aligner = create_aligner(
+        aligner_type=args.aligner,
+        device=args.device,
+        romanize=not args.no_romanize,
+        istiiadha_offset=custom_offset,
+    )
     formatter = OutputFormatter(output_dir=base_dir / "output")
+
+    offset_info = "auto per surah" if custom_offset is None else f"{custom_offset}s"
+    logger.info(f"Settings: aligner={args.aligner}, romanize={not args.no_romanize}, offset={offset_info}")
 
     # Process surahs
     success_count = 0
