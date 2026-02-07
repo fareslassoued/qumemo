@@ -40,6 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Local-only docs
+CLAUDE.md
+AGENTS.md
+FIX_SUMMARY.md
+
 # Quran audio files (large - download on demand)
 /public/audio/*.mp3
 
