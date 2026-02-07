@@ -43,6 +43,7 @@ next-env.d.ts
 # Local-only docs
 CLAUDE.md
 AGENTS.md
+PLAN.md
 FIX_SUMMARY.md
 
 # Quran audio files (large - download on demand)
