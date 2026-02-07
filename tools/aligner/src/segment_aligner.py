@@ -60,6 +60,9 @@ class SegmentAligner:
         surah_number: int,
         min_match_score: float = 0.5,
         enable_word_timings: bool = True,
+        asr: Optional['WhisperASR'] = None,
+        vad: Optional['VadProcessor'] = None,
+        quran_index: Optional['QuranIndex'] = None,
     ):
         """Initialize segment aligner.
 
@@ -67,15 +70,18 @@ class SegmentAligner:
             surah_number: Target surah number (1-114)
             min_match_score: Minimum match score for acceptance
             enable_word_timings: Whether to generate word-level timings
+            asr: Pre-loaded WhisperASR instance (avoids reloading model)
+            vad: Pre-loaded VadProcessor instance (avoids reloading model)
+            quran_index: Pre-loaded QuranIndex instance (avoids rebuilding index)
         """
         self.surah_number = surah_number
         self.min_match_score = min_match_score
         self.enable_word_timings = enable_word_timings
 
-        # Initialize components
-        self.quran_index = QuranIndex()
-        self.vad = VadProcessor()
-        self.asr = WhisperASR()
+        # Use provided instances or create new ones
+        self.quran_index = quran_index if quran_index is not None else QuranIndex()
+        self.vad = vad if vad is not None else VadProcessor()
+        self.asr = asr if asr is not None else WhisperASR()
         self.matcher = TextMatcher()
 
         # Get surah range
@@ -311,12 +317,60 @@ class SegmentAligner:
             self.matcher.lookback_words = current_lookback
             self.matcher.lookahead_words = current_lookahead
 
-            # Attempt to match
-            match = self.matcher.match_segment(trans.text, self.quran_index, pointer)
+            # Attempt to match (clamped to surah boundaries)
+            match = self.matcher.match_segment(
+                trans.text, self.quran_index, pointer,
+                window_min=self.surah_start, window_max=self.surah_end,
+            )
 
             # Restore original window sizes
             self.matcher.lookback_words = original_lookback
             self.matcher.lookahead_words = original_lookahead
+
+            if match and match.score >= self.min_match_score:
+                # Reject matches that would regress the pointer backwards
+                # past the last confirmed position. This prevents re-matching
+                # the same words when similar/identical text repeats across ayahs
+                # (e.g. Al-Baqarah 67-69: "قالوا ادع لنا ربك يبين لنا").
+                if match.end_word + 1 < last_good_pointer:
+                    logger.warning(
+                        f"Segment {i + 1}: REJECTED backward match "
+                        f"({self._word_to_ref(match.start_word)}-{self._word_to_ref(match.end_word)}) "
+                        f"- would regress pointer from {last_good_pointer} to {match.end_word + 1}"
+                    )
+                    match = None
+                elif match.start_word < last_good_pointer:
+                    # Match start regresses but end doesn't (DP cycling on
+                    # repeated patterns like "أمن" in Surah 27).
+                    match_len = match.end_word - match.start_word + 1
+                    overlap = last_good_pointer - match.start_word
+                    new_territory = match_len - overlap
+
+                    if overlap > new_territory:
+                        # More than half the match re-covers already-processed words — reject
+                        logger.warning(
+                            f"Segment {i + 1}: REJECTED cycling match "
+                            f"({self._word_to_ref(match.start_word)}-{self._word_to_ref(match.end_word)}) "
+                            f"- {overlap}/{match_len} words overlap with already-processed region"
+                        )
+                        match = None
+                    else:
+                        # Less than half overlaps — trim the start forward
+                        logger.info(
+                            f"Segment {i + 1}: TRIMMED match start from "
+                            f"{self._word_to_ref(match.start_word)} to "
+                            f"{self._word_to_ref(last_good_pointer)} "
+                            f"(removed {overlap} overlapping words)"
+                        )
+                        trimmed_text = self.quran_index.get_text_window(
+                            last_good_pointer, match.end_word
+                        )
+                        match = ExtendedMatch(
+                            start_word=last_good_pointer,
+                            end_word=match.end_word,
+                            matched_text=trimmed_text,
+                            score=match.score * 0.90,
+                        )
 
             if match and match.score >= self.min_match_score:
                 # Successful match - check for gaps at the beginning
@@ -342,15 +396,34 @@ class SegmentAligner:
                         )
                         match = extended_match
                     else:
-                        # Log missing words for manual review
+                        # Backward extension failed — force-include gap words
+                        # so they get estimated proportional timings instead
+                        # of being permanently lost.
                         missing_words = []
                         for w_idx in range(expected_start, match.start_word):
                             word_info = self.quran_index.get_word(w_idx)
                             if word_info:
                                 missing_words.append(f"{word_info.text} ({w_idx})")
-                        logger.error(
-                            f"Segment {i + 1}: WORDS SKIPPED - "
-                            f"Missing: {', '.join(missing_words)}"
+
+                        missing_text = self.quran_index.get_text_window(
+                            expected_start, match.start_word - 1
+                        )
+                        combined_text = (
+                            (missing_text + " " + match.matched_text)
+                            if missing_text
+                            else match.matched_text
+                        )
+
+                        match = ExtendedMatch(
+                            start_word=expected_start,
+                            end_word=match.end_word,
+                            matched_text=combined_text,
+                            score=match.score * 0.80,
+                        )
+
+                        logger.warning(
+                            f"Segment {i + 1}: FORCE-INCLUDED {len(missing_words)} gap words "
+                            f"({', '.join(missing_words)}) — score reduced to {match.score:.2f}"
                         )
 
                 # Calculate timing adjustments based on phoneme position
@@ -460,7 +533,7 @@ class SegmentAligner:
                 f"(pointer={pointer}, surah_end={self.surah_end})"
             )
 
-            if unmatched_count <= 5:
+            if unmatched_count <= 50:
                 # Find last successful non-special segment
                 last_good_seg = None
                 for seg in reversed(aligned_segments):
@@ -1067,6 +1140,9 @@ class SegmentAligner:
         # Fourth pass: Detect and fix overlaps
         ayah_timings = self._fix_ayah_timing_overlaps(ayah_timings)
 
+        # Fourth-and-a-half pass: Interpolate any missing ayahs
+        ayah_timings = self._interpolate_missing_ayahs(ayah_timings)
+
         # Fifth pass: Validate and fix suspicious ayah durations
         ayah_timings = self._validate_ayah_durations(ayah_timings, aligned_segments)
 
@@ -1400,6 +1476,120 @@ class SegmentAligner:
                 logger.info(f"  - Ayah {adj['ayah']}: {adj['action']}")
 
         return ayah_timings
+
+    def _interpolate_missing_ayahs(self, ayah_timings: Dict) -> Dict:
+        """Interpolate timing for any ayahs missing from the output.
+
+        Compares present ayah numbers against the expected count from
+        get_surah_ayah_count(). For each missing ayah, interpolates timing
+        from neighboring ayahs and generates word timings.
+
+        No-op when no ayahs are missing (all passing surahs).
+        """
+        expected_count = self.quran_index.get_surah_ayah_count(self.surah_number)
+        if expected_count == 0:
+            return ayah_timings
+
+        present = set(ayah_timings.keys())
+        expected = set(range(1, expected_count + 1))
+        missing = sorted(expected - present)
+
+        if not missing:
+            return ayah_timings
+
+        logger.warning(
+            f"Interpolating {len(missing)} missing ayah(s): {missing}"
+        )
+
+        sorted_present = sorted(present)
+
+        for ayah_num in missing:
+            # Find preceding and following present ayahs
+            prev_ayah = None
+            next_ayah = None
+            for a in reversed(sorted_present):
+                if a < ayah_num:
+                    prev_ayah = a
+                    break
+            for a in sorted_present:
+                if a > ayah_num:
+                    next_ayah = a
+                    break
+
+            if prev_ayah is not None and next_ayah is not None:
+                # Interpolate: steal proportional time from gap between prev end and next start
+                prev_end = ayah_timings[prev_ayah]["end"]
+                next_start = ayah_timings[next_ayah]["start"]
+
+                if next_start > prev_end:
+                    # There's a gap — use it
+                    interp_start = prev_end
+                    interp_end = next_start
+                else:
+                    # No gap — steal from end of preceding ayah
+                    prev_start = ayah_timings[prev_ayah]["start"]
+                    prev_duration = prev_end - prev_start
+                    # Give 30% of preceding ayah's duration to the missing one
+                    steal = prev_duration * 0.30
+                    interp_start = prev_end - steal
+                    interp_end = prev_end
+                    ayah_timings[prev_ayah]["end"] = interp_start
+            elif prev_ayah is not None:
+                # Missing ayah is after all present ones — steal from prev
+                prev_start = ayah_timings[prev_ayah]["start"]
+                prev_end = ayah_timings[prev_ayah]["end"]
+                prev_duration = prev_end - prev_start
+                steal = prev_duration * 0.30
+                interp_start = prev_end - steal
+                interp_end = prev_end
+                ayah_timings[prev_ayah]["end"] = interp_start
+            elif next_ayah is not None:
+                # Missing ayah is before all present ones — steal from next
+                next_start = ayah_timings[next_ayah]["start"]
+                next_end = ayah_timings[next_ayah]["end"]
+                next_duration = next_end - next_start
+                steal = next_duration * 0.30
+                interp_start = next_start
+                interp_end = next_start + steal
+                ayah_timings[next_ayah]["start"] = interp_end
+            else:
+                # No neighbors at all — shouldn't happen
+                logger.error(f"Cannot interpolate ayah {ayah_num}: no neighbors")
+                continue
+
+            # Generate word timings for the interpolated ayah
+            word_timings = self._generate_word_timings_for_ayah(
+                ayah_num, interp_start, interp_end
+            )
+
+            ayah_timings[ayah_num] = {
+                "start": round(interp_start, 3),
+                "end": round(interp_end, 3),
+                "word_timings": word_timings,
+            }
+
+            # Add to sorted_present so subsequent missing ayahs can use it as neighbor
+            sorted_present.append(ayah_num)
+            sorted_present.sort()
+
+            logger.info(
+                f"Interpolated ayah {ayah_num}: "
+                f"{interp_start:.3f}s - {interp_end:.3f}s "
+                f"({len(word_timings)} words)"
+            )
+
+        return ayah_timings
+
+    def _generate_word_timings_for_ayah(
+        self, ayah_num: int, time_start: float, time_end: float
+    ) -> List[Dict]:
+        """Generate word timings for a specific ayah using its word range."""
+        start_idx, end_idx = self.quran_index.get_ayah_range(
+            self.surah_number, ayah_num
+        )
+        if start_idx == 0 and end_idx == 0:
+            return []
+        return self._generate_word_timings(time_start, time_end, start_idx, end_idx)
 
     def _fix_ayah_timing_overlaps(self, ayah_timings: Dict) -> Dict:
         """Detect and fix overlapping ayah timings.

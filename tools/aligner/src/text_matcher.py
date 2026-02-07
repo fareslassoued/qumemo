@@ -239,6 +239,8 @@ class TextMatcher:
         quran_index,
         pointer: int,
         avg_phonemes_per_word: float = 3.0,
+        window_min: Optional[int] = None,
+        window_max: Optional[int] = None,
     ) -> Optional[MatchResult]:
         """Match a transcribed segment to Quran text.
 
@@ -247,6 +249,8 @@ class TextMatcher:
             quran_index: QuranIndex object
             pointer: Current position in Quran (global word index)
             avg_phonemes_per_word: Average phonemes per word for estimation
+            window_min: Floor for search window (e.g. surah start)
+            window_max: Ceiling for search window (e.g. surah end)
 
         Returns:
             MatchResult if successful, None otherwise
@@ -262,11 +266,11 @@ class TextMatcher:
             len(transcribed_phonemes), avg_phonemes_per_word
         )
 
-        # Build search window
-        window_start = max(0, pointer - self.lookback_words)
-        window_end = min(
-            len(quran_index.words), pointer + est_words + self.lookahead_words
-        )
+        # Build search window, clamped to bounds if provided
+        floor = window_min if window_min is not None else 0
+        ceiling = (window_max + 1) if window_max is not None else len(quran_index.words)
+        window_start = max(floor, pointer - self.lookback_words)
+        window_end = min(ceiling, pointer + est_words + self.lookahead_words)
 
         # Get reference phonemes for window
         reference_phonemes, word_boundaries = quran_index.get_phoneme_window(
