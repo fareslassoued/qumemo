@@ -130,7 +130,8 @@ class SegmentAligner:
 
         # 1. Load audio
         audio, sample_rate = self.load_audio(audio_path)
-        logger.info(f"Audio loaded: {len(audio) / sample_rate:.1f}s @ {sample_rate}Hz")
+        audio_duration = len(audio) / sample_rate
+        logger.info(f"Audio loaded: {audio_duration:.1f}s @ {sample_rate}Hz")
 
         # 2. Run VAD
         vad_segments = self.vad.detect_speech(audio, sample_rate)
@@ -153,6 +154,25 @@ class SegmentAligner:
         # Initialize special segment detector
         special_detector = SpecialSegmentDetector()
 
+        # 4.5. Classify first segments to detect structure
+        # This handles cases where ASR misses the Basmala or merges it with Ayah 1
+        try:
+            from .first_segment_classifier import FirstSegmentClassifier
+        except ImportError:
+            from first_segment_classifier import FirstSegmentClassifier
+
+        first_classifier = FirstSegmentClassifier(self.surah_number)
+        first_segments_data = [
+            (vad_seg.start_time, vad_seg.end_time, trans.text)
+            for vad_seg, trans in zip(vad_segments[:4], transcriptions[:4])
+        ]
+        classifications, _ = first_classifier.classify_first_segments(
+            first_segments_data
+        )
+
+        # Build classification lookup map for use in the matching loop
+        classification_map = {c.segment_idx: c for c in classifications}
+
         # 5. Match each segment to Quran with re-anchoring logic
         pointer = self.surah_start  # Start at beginning of surah
         last_good_pointer = self.surah_start  # Track last successful position
@@ -160,6 +180,41 @@ class SegmentAligner:
         consecutive_failures = 0
         total_matched = 0
         total_failed = 0
+
+        # Add synthetic Basmala if detected as missing
+        if first_classifier.should_insert_missing_basmala(classifications):
+            # Find Isti'adha end and Ayah 1 start
+            istiadha_end = 0
+            ayah1_start = float("inf")
+            for c in classifications:
+                if c.segment_type == "isti'adha":
+                    istiadha_end = max(istiadha_end, c.end_time)
+                elif c.segment_type == "ayah1":
+                    ayah1_start = min(ayah1_start, c.start_time)
+
+            if istiadha_end > 0 and ayah1_start < float("inf"):
+                basmala_start, basmala_end = (
+                    first_classifier.get_synthetic_basmala_timing(
+                        istiadha_end, ayah1_start
+                    )
+                )
+                logger.info(
+                    f"Inserting synthetic Basmala segment: "
+                    f"{basmala_start:.3f}s - {basmala_end:.3f}s"
+                )
+
+                # Create synthetic Basmala segment
+                synthetic_basmala = AlignedSegment(
+                    segment_idx=-1,  # Special marker
+                    time_start=basmala_start,
+                    time_end=basmala_end,
+                    ref_start="basmala",
+                    ref_end="basmala",
+                    matched_text="بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                    score=1.0,
+                    word_timings=[],
+                )
+                aligned_segments.append(synthetic_basmala)
 
         for i, (vad_seg, trans) in enumerate(zip(vad_segments, transcriptions)):
             logger.debug(
@@ -170,7 +225,11 @@ class SegmentAligner:
             )
 
             # Check if this is a special segment (Isti'adha or Basmala)
-            special_type = special_detector.detect(trans.text)
+            # Only allow special detection before the first ayah match
+            # to prevent ayah text (e.g. "الرحمن الرحيم") from being swallowed
+            special_type = None
+            if pointer == self.surah_start:
+                special_type = special_detector.detect(trans.text)
             if special_type:
                 # Create special segment entry
                 segment = AlignedSegment(
@@ -190,6 +249,46 @@ class SegmentAligner:
                     f"Segment {i + 1}: detected {special_type} (special segment) - pointer: {pointer}"
                 )
                 continue  # Skip Quran matching for special segments
+
+            # Check if this segment is classified as Muqattaat letters
+            classification = classification_map.get(i)
+            if classification and classification.segment_type == "muqattaat":
+                # Muqattaat segment: bypass phoneme matcher, map directly to
+                # the word at the current pointer (the Muqattaat word)
+                word_info = self.quran_index.get_word(pointer)
+                if word_info:
+                    word_timings = []
+                    if self.enable_word_timings:
+                        word_timings = self._generate_word_timings(
+                            vad_seg.start_time,
+                            vad_seg.end_time,
+                            pointer,
+                            pointer,  # Single word
+                        )
+
+                    segment = AlignedSegment(
+                        segment_idx=i,
+                        time_start=vad_seg.start_time,
+                        time_end=vad_seg.end_time,
+                        ref_start=self._word_to_ref(pointer),
+                        ref_end=self._word_to_ref(pointer),
+                        matched_text=word_info.text,
+                        score=1.0,
+                        word_timings=word_timings,
+                    )
+                    aligned_segments.append(segment)
+
+                    logger.info(
+                        f"Segment {i + 1}: Muqattaat '{word_info.text}' "
+                        f"({vad_seg.start_time:.3f}s-{vad_seg.end_time:.3f}s) "
+                        f"-> {self._word_to_ref(pointer)} - pointer: {pointer + 1}"
+                    )
+
+                    pointer += 1
+                    last_good_pointer = pointer
+                    total_matched += 1
+                    consecutive_failures = 0
+                    continue
 
             # Determine if we should use wider window due to consecutive failures
             is_wide_search = consecutive_failures >= MAX_CONSECUTIVE_FAILURES
@@ -352,6 +451,51 @@ class SegmentAligner:
                         logger.warning(
                             f"Segment {i + 1}: Fuzzy re-anchoring failed - staying at pointer: {pointer}"
                         )
+
+        # Handle unmatched trailing words at end of surah
+        if pointer <= self.surah_end:
+            unmatched_count = self.surah_end - pointer + 1
+            logger.warning(
+                f"{unmatched_count} trailing word(s) unmatched at end of surah "
+                f"(pointer={pointer}, surah_end={self.surah_end})"
+            )
+
+            if unmatched_count <= 5:
+                # Find last successful non-special segment
+                last_good_seg = None
+                for seg in reversed(aligned_segments):
+                    if not seg.error and seg.ref_start not in ("isti'adha", "basmala"):
+                        last_good_seg = seg
+                        break
+
+                if last_good_seg:
+                    # Find trailing audio end from ALL segments after the last good one,
+                    # and also include the full audio duration (the tail of the last
+                    # word may fade below VAD threshold, e.g. long madd on "الضالين")
+                    trailing_end = last_good_seg.time_end
+                    for seg in aligned_segments:
+                        if seg.segment_idx > last_good_seg.segment_idx:
+                            trailing_end = max(trailing_end, seg.time_end)
+                    trailing_end = max(trailing_end, audio_duration)
+
+                    # Extend the last segment's ref to include unmatched words
+                    last_good_seg.ref_end = self._word_to_ref(self.surah_end)
+                    last_good_seg.time_end = trailing_end
+
+                    # Generate word timings for the newly included words
+                    if self.enable_word_timings and last_good_seg.word_timings:
+                        new_start_time = last_good_seg.word_timings[-1]["end"]
+                        new_timings = self._generate_word_timings(
+                            new_start_time, trailing_end,
+                            pointer, self.surah_end,
+                        )
+                        last_good_seg.word_timings.extend(new_timings)
+
+                    pointer = self.surah_end + 1
+                    logger.info(
+                        f"Extended last segment to include trailing words "
+                        f"(ref_end={last_good_seg.ref_end}, time_end={trailing_end:.3f}s)"
+                    )
 
         logger.info(
             f"Alignment complete: {total_matched} matched, {total_failed} failed, "

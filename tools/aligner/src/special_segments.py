@@ -82,17 +82,21 @@ class SpecialSegmentDetector:
         Returns:
             'isti'adha', 'basmala', or None
         """
-        # Check Isti'adha variants
-        for variant in ISTIADHA_VARIANTS:
-            similarity = self.calculate_similarity(transcribed_text, variant)
-            if similarity >= self.min_similarity:
-                return "isti'adha"
+        normalized = self.normalize_text(transcribed_text)
 
-        # Check Basmala variants
-        for variant in BASMALA_VARIANTS:
-            similarity = self.calculate_similarity(transcribed_text, variant)
-            if similarity >= self.min_similarity:
-                return "basmala"
+        # Check Isti'adha variants - require keyword guard
+        if any(kw in normalized for kw in ["اعوذ", "أعوذ"]):
+            for variant in ISTIADHA_VARIANTS:
+                similarity = self.calculate_similarity(transcribed_text, variant)
+                if similarity >= self.min_similarity:
+                    return "isti'adha"
+
+        # Check Basmala variants - require keyword guard
+        if "بسم" in normalized:
+            for variant in BASMALA_VARIANTS:
+                similarity = self.calculate_similarity(transcribed_text, variant)
+                if similarity >= self.min_similarity:
+                    return "basmala"
 
         return None
 
