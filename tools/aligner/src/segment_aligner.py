@@ -983,6 +983,25 @@ class SegmentAligner:
             if not word_timings:
                 continue
 
+            # Deduplicate word timings by word_ref (DP cycling can produce
+            # duplicate refs at wildly different times). Keep the first
+            # occurrence (earliest start time) for each word_ref.
+            word_timings.sort(key=lambda x: x.get("start", 0))
+            seen_refs: set[str] = set()
+            deduped = []
+            for wt in word_timings:
+                ref = wt.get("word_ref", "")
+                if ref and ref in seen_refs:
+                    logger.debug(
+                        f"Ayah {ayah_num}: Dropping duplicate word_ref {ref} "
+                        f"at {wt.get('start', 0):.2f}s"
+                    )
+                    continue
+                if ref:
+                    seen_refs.add(ref)
+                deduped.append(wt)
+            word_timings = deduped
+
             # Sort word timings by start time
             word_timings.sort(key=lambda x: x.get("start", 0))
 
@@ -1087,14 +1106,17 @@ class SegmentAligner:
                                     "word_timings": [],
                                 }
                             else:
-                                # Merge with existing timing
+                                # Only merge if the existing entry has no word timings
+                                # (was a placeholder from a previous pass). If it already
+                                # has word timings, the second pass built correct boundaries.
                                 existing = ayah_timings[ayah_num]
-                                existing["start"] = min(
-                                    existing["start"], ayah_words[0]["start"]
-                                )
-                                existing["end"] = max(
-                                    existing["end"], ayah_words[-1]["end"]
-                                )
+                                if not existing.get("word_timings"):
+                                    existing["start"] = min(
+                                        existing["start"], ayah_words[0]["start"]
+                                    )
+                                    existing["end"] = max(
+                                        existing["end"], ayah_words[-1]["end"]
+                                    )
 
                             current_idx += len(ayah_words)
                 else:

@@ -93,21 +93,25 @@ class ArabicPhonemeMapper:
         }
 
         # Muqatta'at letters (disconnected letter sequences)
+        # Letters with madd tawil (6-count elongation): كمعسلنقص
+        # Others have short pronunciation (2-count)
         self.muqattaat_letters = {
-            "ا": "ʔaː",  # Alif
-            "ل": "laːm",  # Lam
-            "م": "miːm",  # Mim
-            "ص": "sˤaːd",  # Sad
-            "ر": "raːʔ",  # Ra
+            # Long madd (كم عسل نقص)
             "ك": "kaːf",  # Kaf
-            "ه": "haːʔ",  # Ha
-            "ي": "jaːʔ",  # Ya
+            "م": "miːm",  # Mim
             "ع": "ʕaːjn",  # Ayn
-            "ط": "tˤaːʔ",  # Ta
             "س": "siːn",  # Sin
-            "ح": "ħaːʔ",  # Ha
-            "ق": "qaːf",  # Qaf
+            "ل": "laːm",  # Lam
             "ن": "nuːn",  # Nun
+            "ق": "qaːf",  # Qaf
+            "ص": "sˤaːd",  # Sad
+            # Short (no madd tawil)
+            "ا": "ʔalif",  # Alif
+            "ر": "raː",  # Ra
+            "ه": "haː",  # Ha
+            "ي": "jaː",  # Ya
+            "ط": "tˤaː",  # Ta
+            "ح": "ħaː",  # Ha
         }
 
     def normalize_arabic(self, text: str) -> str:
