@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+cache/
+output/*.json
+output_fixed/*.json
+PLAN.md

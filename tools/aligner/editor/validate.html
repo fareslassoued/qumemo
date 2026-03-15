@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aligner Diff Validation Tool</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            display: flex; flex-wrap: wrap; gap: 15px; align-items: center;
+            padding: 15px; background: #16213e; border-radius: 10px; margin-bottom: 15px;
+        }
+        .header h1 { font-size: 1.2rem; flex: 1; }
+
+        /* Summary Bar */
+        .summary-bar {
+            display: flex; gap: 20px; align-items: center; padding: 12px 15px;
+            background: #16213e; border-radius: 10px; margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .summary-stat {
+            padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; font-weight: 600;
+        }
+        .stat-total { background: #3b82f6; color: #fff; }
+        .stat-changed { background: #f59e0b; color: #000; }
+        .stat-approved { background: #10b981; color: #fff; }
+        .stat-flagged { background: #ef4444; color: #fff; }
+
+        /* File Loader */
+        .file-loader {
+            display: flex; gap: 15px; align-items: center; padding: 15px;
+            background: #16213e; border-radius: 10px; margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .file-group { display: flex; align-items: center; gap: 8px; }
+        .file-group label { font-size: 0.9rem; color: #94a3b8; white-space: nowrap; }
+        .file-group select, .file-group input[type="file"] {
+            padding: 6px 10px; background: #0f3460; border: none; border-radius: 5px;
+            color: #fff; font-size: 0.85rem; cursor: pointer;
+        }
+        .file-group select { min-width: 100px; }
+        .file-fallback {
+            margin-right: auto; opacity: 0.5;
+        }
+        .file-fallback:hover { opacity: 0.8; }
+        .compare-btn {
+            padding: 8px 20px; background: #e94560; border: none; border-radius: 5px;
+            color: #fff; cursor: pointer; font-size: 0.9rem; font-weight: 600;
+        }
+        .compare-btn:hover { background: #ff6b8a; }
+        .compare-btn:disabled { background: #555; cursor: not-allowed; }
+
+        /* Audio Section */
+        .audio-section {
+            background: #16213e; padding: 15px; border-radius: 10px; margin-bottom: 15px;
+        }
+        .audio-controls {
+            display: flex; align-items: center; gap: 15px; flex-wrap: wrap;
+        }
+        .play-btn {
+            width: 44px; height: 44px; border-radius: 50%; background: #e94560;
+            border: none; color: white; font-size: 1.1rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .play-btn:hover { background: #ff6b8a; }
+        .play-btn:disabled { background: #555; cursor: not-allowed; }
+        .seek-slider {
+            flex: 1; min-width: 200px; height: 8px; -webkit-appearance: none;
+            background: #0f3460; border-radius: 4px; cursor: pointer;
+        }
+        .seek-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            background: #e94560; border-radius: 50%; cursor: pointer;
+        }
+        .time-display {
+            font-family: monospace; font-size: 0.9rem; color: #94a3b8; min-width: 140px;
+        }
+        .speed-control { display: flex; align-items: center; gap: 5px; }
+        .speed-control select {
+            padding: 5px; background: #0f3460; border: none; border-radius: 5px; color: #fff;
+        }
+
+        /* Ayah List */
+        .ayah-list {
+            max-height: calc(100vh - 380px); overflow-y: auto;
+            background: #16213e; border-radius: 10px; padding: 10px;
+        }
+
+        /* Base ayah item */
+        .ayah-item {
+            background: #0f3460; border-radius: 8px;
+            margin-bottom: 8px; transition: all 0.2s;
+            border-right: 4px solid transparent;
+        }
+        .ayah-item.playing { background: #1a4a7a; }
+
+        /* Unchanged ayah - compact/dim */
+        .ayah-item.unchanged {
+            opacity: 0.6; padding: 8px 15px;
+        }
+        .ayah-item.unchanged:hover { opacity: 0.85; }
+        .ayah-item.unchanged .ayah-text {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-size: 1.1rem; margin-bottom: 0;
+        }
+        .ayah-item.unchanged .unchanged-row {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px;
+        }
+        .ayah-item.unchanged .unchanged-timing {
+            font-family: monospace; font-size: 0.8rem; color: #94a3b8;
+            white-space: nowrap; direction: ltr; text-align: left;
+        }
+        .ayah-item.unchanged .play-range-btn {
+            padding: 3px 10px; font-size: 0.75rem;
+        }
+
+        /* Changed ayah - expanded with yellow border */
+        .ayah-item.changed {
+            border-right: 4px solid #f59e0b;
+            padding: 15px;
+        }
+        .ayah-item.changed.approved { border-right-color: #10b981; }
+        .ayah-item.changed.flagged { border-right-color: #ef4444; }
+
+        .diff-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px;
+        }
+        .ayah-number {
+            background: #e94560; color: white; padding: 2px 10px;
+            border-radius: 15px; font-size: 0.85rem;
+        }
+        .verdict-btns { display: flex; gap: 6px; }
+        .verdict-btn {
+            padding: 5px 12px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 0.8rem; font-weight: 600;
+        }
+        .verdict-btn.approve { background: #10b981; color: #fff; }
+        .verdict-btn.approve:hover { background: #059669; }
+        .verdict-btn.approve.active { outline: 2px solid #fff; }
+        .verdict-btn.flag { background: #ef4444; color: #fff; }
+        .verdict-btn.flag:hover { background: #dc2626; }
+        .verdict-btn.flag.active { outline: 2px solid #fff; }
+
+        .ayah-text {
+            font-family: 'KFGQPC Uthman Taha Naskh', 'Traditional Arabic', serif;
+            font-size: 1.3rem; line-height: 2; text-align: right; margin-bottom: 12px;
+        }
+
+        /* Timing comparison */
+        .timing-compare {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+            margin-bottom: 10px;
+        }
+        .timing-col {
+            background: #1a1a2e; border-radius: 6px; padding: 10px;
+        }
+        .timing-col h4 {
+            font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px;
+            text-align: left; direction: ltr;
+        }
+        .timing-val {
+            font-family: monospace; font-size: 0.95rem; direction: ltr; text-align: left;
+        }
+        .timing-val .label { color: #94a3b8; font-size: 0.8rem; }
+        .timing-val .value { color: #fff; }
+        .timing-val .delta-pos { color: #10b981; }
+        .timing-val .delta-neg { color: #ef4444; }
+
+        .play-row {
+            display: flex; gap: 10px; align-items: center; margin-bottom: 8px;
+        }
+        .play-range-btn {
+            padding: 5px 14px; border: none; border-radius: 4px;
+            cursor: pointer; font-size: 0.8rem; color: #fff;
+        }
+        .play-before { background: #6366f1; }
+        .play-before:hover { background: #818cf8; }
+        .play-after { background: #10b981; }
+        .play-after:hover { background: #34d399; }
+
+        /* Word diff */
+        .words-toggle {
+            color: #94a3b8; cursor: pointer; font-size: 0.85rem; user-select: none;
+        }
+        .words-section {
+            margin-top: 10px; padding: 10px; background: #1a1a2e;
+            border-radius: 5px; display: none; direction: ltr; text-align: left;
+        }
+        .words-section.expanded { display: block; }
+        .word-diff-table {
+            width: 100%; border-collapse: collapse; font-size: 0.8rem;
+        }
+        .word-diff-table th {
+            text-align: left; padding: 4px 8px; color: #94a3b8; border-bottom: 1px solid #333;
+        }
+        .word-diff-table td {
+            padding: 4px 8px; font-family: monospace;
+        }
+        .word-diff-table tr.changed { background: rgba(245, 158, 11, 0.1); }
+        .word-text-col {
+            font-family: 'KFGQPC Uthman Taha Naskh', 'Traditional Arabic', serif;
+            direction: rtl; text-align: right;
+        }
+
+        .empty-state {
+            text-align: center; padding: 50px; color: #666;
+        }
+        .error-msg {
+            color: #ef4444; padding: 10px; background: rgba(239, 68, 68, 0.1);
+            border-radius: 5px; margin-bottom: 10px;
+        }
+        .shortcuts {
+            font-size: 0.8rem; color: #666; text-align: left; direction: ltr;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Aligner Diff Validation</h1>
+            <div class="shortcuts">
+                Space=Play/Pause | Left/Right=Seek 100ms | Shift+Left/Right=1s
+            </div>
+        </div>
+
+        <!-- File Loader -->
+        <div class="file-loader">
+            <div class="file-group">
+                <label>Surah:</label>
+                <select id="surahSelect" onchange="onSurahChange()">
+                    <option value="">Select Surah...</option>
+                </select>
+            </div>
+            <div class="file-group">
+                <label>Before:</label>
+                <select id="beforeSuffix">
+                    <option value="_timings.json" selected>_timings.json</option>
+                    <option value="_final.json">_final.json</option>
+                    <option value="_before.json">_before.json</option>
+                    <option value="_test.json">_test.json</option>
+                </select>
+            </div>
+            <div class="file-group">
+                <label>After:</label>
+                <select id="afterSuffix">
+                    <option value="_test.json" selected>_test.json</option>
+                    <option value="_timings.json">_timings.json</option>
+                    <option value="_final.json">_final.json</option>
+                    <option value="_before.json">_before.json</option>
+                </select>
+            </div>
+            <button class="compare-btn" id="compareBtn" onclick="compare()">Compare</button>
+            <div class="file-group file-fallback">
+                <label style="color: #666;">or drop JSON:</label>
+                <input type="file" id="beforeFile" accept=".json" onchange="loadFileInput('before', this)">
+                <input type="file" id="afterFile" accept=".json" onchange="loadFileInput('after', this)">
+            </div>
+        </div>
+
+        <!-- Summary Bar -->
+        <div class="summary-bar" id="summaryBar" style="display:none;">
+            <span class="summary-stat stat-total" id="statTotal">0 ayahs</span>
+            <span class="summary-stat stat-changed" id="statChanged">0 changed</span>
+            <span class="summary-stat stat-approved" id="statApproved">0 approved</span>
+            <span class="summary-stat stat-flagged" id="statFlagged">0 flagged</span>
+        </div>
+
+        <!-- Audio Section -->
+        <div class="audio-section">
+            <div class="audio-controls">
+                <button class="play-btn" id="playBtn" onclick="togglePlay()" disabled>&#9654;</button>
+                <input type="range" class="seek-slider" id="seekSlider" value="0" min="0" max="100" step="0.1" disabled>
+                <div class="time-display" id="timeDisplay">00:00.000 / 00:00.000</div>
+                <div class="speed-control">
+                    <label>Speed:</label>
+                    <select id="speedSelect" onchange="audio.playbackRate=parseFloat(this.value)">
+                        <option value="0.5">0.5x</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="1" selected>1.0x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="errorMsg" style="display:none;"></div>
+
+        <!-- Ayah List -->
+        <div class="ayah-list" id="ayahList">
+            <div class="empty-state">
+                Select a surah, choose Before/After suffixes, then click Compare.
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer"></audio>
+
+    <script>
+        const CONFIG = {
+            basePath: '..',
+            outputPath: 'output',
+            cacheMP3Path: 'cache/mp3',
+            diffThresholdMs: 100,
+            suffixes: ['_final.json', '_before.json', '_test.json', '_timings.json'],
+        };
+
+        // State
+        let beforeData = null;
+        let afterData = null;
+        let diffSet = new Set();  // Set of ayah numbers that changed
+        let beforeMap = {};       // ayah_no -> ayah from before
+        let verdicts = {};        // ayah_no -> 'approved' | 'flagged'
+        let audio = document.getElementById('audioPlayer');
+        let playStopTime = null;
+        let currentSurah = null;
+
+        // SURAH_NAMES
+        const SURAH_NAMES = [
+            '',
+            'الفَاتِحة', 'البَقَرَة', 'آل عِمْرَان', 'النِّسَاء', 'المَائِدَة',
+            'الأَنْعَام', 'الأَعْرَاف', 'الأَنْفَال', 'التَّوْبَة', 'يُونُس',
+            'هُود', 'يُوسُف', 'الرَّعْد', 'إِبْرَاهِيم', 'الحِجْر',
+            'النَّحْل', 'الإِسْرَاء', 'الكَهْف', 'مَرْيَم', 'طه',
+            'الأَنْبِيَاء', 'الحَجّ', 'المُؤْمِنُون', 'النُّور', 'الفُرْقَان',
+            'الشُّعَرَاء', 'النَّمْل', 'القَصَص', 'العَنْكَبُوت', 'الرُّوم',
+            'لُقْمَان', 'السَّجْدَة', 'الأَحْزَاب', 'سَبَأ', 'فَاطِر',
+            'يس', 'الصَّافَّات', 'ص', 'الزُّمَر', 'غَافِر',
+            'فُصِّلَت', 'الشُّورَى', 'الزُّخْرُف', 'الدُّخَان', 'الجَاثِيَة',
+            'الأَحْقَاف', 'مُحَمَّد', 'الفَتْح', 'الحُجُرَات', 'ق',
+            'الذَّارِيَات', 'الطُّور', 'النَّجْم', 'القَمَر', 'الرَّحْمَٰن',
+            'الوَاقِعَة', 'الحَدِيد', 'المُجَادَلَة', 'الحَشْر', 'المُمْتَحَنَة',
+            'الصَّفّ', 'الجُمُعَة', 'المُنَافِقُون', 'التَّغَابُن', 'الطَّلَاق',
+            'التَّحْرِيم', 'المُلْك', 'القَلَم', 'الحَاقَّة', 'المَعَارِج',
+            'نُوح', 'الجِنّ', 'المُزَّمِّل', 'المُدَّثِّر', 'القِيَامَة',
+            'الإِنْسَان', 'المُرْسَلَات', 'النَّبَأ', 'النَّازِعَات', 'عَبَسَ',
+            'التَّكْوِير', 'الانْفِطَار', 'المُطَفِّفِين', 'الانْشِقَاق', 'البُرُوج',
+            'الطَّارِق', 'الأَعْلَى', 'الغَاشِيَة', 'الفَجْر', 'البَلَد',
+            'الشَّمْس', 'اللَّيْل', 'الضُّحَى', 'الشَّرْح', 'التِّين',
+            'العَلَق', 'القَدْر', 'البَيِّنَة', 'الزَّلْزَلَة', 'العَادِيَات',
+            'القَارِعَة', 'التَّكَاثُر', 'العَصْر', 'الهُمَزَة', 'الفِيل',
+            'قُرَيْش', 'المَاعُون', 'الكَوْثَر', 'الكَافِرُون', 'النَّصْر',
+            'المَسَد', 'الإِخْلَاص', 'الفَلَق', 'النَّاس'
+        ];
+
+        // Derive file path from surah number + suffix
+        function getFilePath(surahNo, suffix) {
+            const pad = String(surahNo).padStart(3, '0');
+            return `${CONFIG.basePath}/${CONFIG.outputPath}/${pad}${suffix}`;
+        }
+
+        function getAudioPath(surahNo) {
+            const pad = String(surahNo).padStart(3, '0');
+            return `${CONFIG.basePath}/${CONFIG.cacheMP3Path}/${pad}.mp3`;
+        }
+
+        // Init
+        function init() {
+            const surahSelect = document.getElementById('surahSelect');
+            for (let i = 1; i <= 114; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${i}. ${SURAH_NAMES[i]}`;
+                surahSelect.appendChild(opt);
+            }
+        }
+
+        // On surah change, auto-load audio
+        function onSurahChange() {
+            const surahNo = parseInt(document.getElementById('surahSelect').value);
+            if (surahNo) {
+                currentSurah = surahNo;
+                loadAudio(surahNo);
+            }
+        }
+
+        // Load from file input (fallback)
+        function loadFileInput(which, input) {
+            if (!input.files.length) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (which === 'before') beforeData = data;
+                    else afterData = data;
+                    showError('');
+                } catch (err) {
+                    showError(`Failed to parse ${which} JSON: ${err.message}`);
+                }
+            };
+            reader.readAsText(input.files[0]);
+        }
+
+        // Compare
+        async function compare() {
+            const surahNo = parseInt(document.getElementById('surahSelect').value);
+            const beforeSuffix = document.getElementById('beforeSuffix').value;
+            const afterSuffix = document.getElementById('afterSuffix').value;
+
+            // If file inputs were used, skip fetching
+            if (!beforeData || !afterData) {
+                if (!surahNo) {
+                    showError('Please select a surah');
+                    return;
+                }
+
+                const beforePath = getFilePath(surahNo, beforeSuffix);
+                const afterPath = getFilePath(surahNo, afterSuffix);
+
+                // Fetch before
+                if (!beforeData) {
+                    try {
+                        const resp = await fetch(beforePath);
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${beforePath}`);
+                        beforeData = await resp.json();
+                    } catch (err) {
+                        showError(`Failed to load Before (${beforeSuffix}): ${err.message}`);
+                        return;
+                    }
+                }
+
+                // Fetch after
+                if (!afterData) {
+                    try {
+                        const resp = await fetch(afterPath);
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${afterPath}`);
+                        afterData = await resp.json();
+                    } catch (err) {
+                        showError(`Failed to load After (${afterSuffix}): ${err.message}`);
+                        return;
+                    }
+                }
+            }
+
+            if (!beforeData || !afterData) {
+                showError('Please select both Before and After files');
+                return;
+            }
+
+            // Detect surah and load audio
+            currentSurah = afterData.surah_no || beforeData.surah_no || surahNo || null;
+            if (currentSurah) {
+                loadAudio(currentSurah);
+                document.getElementById('surahSelect').value = currentSurah;
+            }
+
+            // Compute diffs
+            computeDiffs();
+            verdicts = {};
+            renderAyahs();
+            updateSummary();
+            document.getElementById('summaryBar').style.display = 'flex';
+            showError('');
+        }
+
+        function computeDiffs() {
+            diffSet = new Set();
+            beforeMap = {};
+            const threshold = CONFIG.diffThresholdMs / 1000;
+
+            (beforeData.ayahs || []).forEach(a => { beforeMap[a.aya_no] = a; });
+
+            const afterAyahNos = new Set((afterData.ayahs || []).map(a => a.aya_no));
+
+            // Check each after ayah against before
+            for (const ayah of (afterData.ayahs || [])) {
+                const before = beforeMap[ayah.aya_no];
+                if (!before) {
+                    // Only in after
+                    diffSet.add(ayah.aya_no);
+                    continue;
+                }
+                const startDelta = (ayah.start_time || 0) - (before.start_time || 0);
+                const endDelta = (ayah.end_time || 0) - (before.end_time || 0);
+                if (Math.abs(startDelta) >= threshold || Math.abs(endDelta) >= threshold) {
+                    diffSet.add(ayah.aya_no);
+                }
+            }
+
+            // Check for ayahs only in before
+            for (const before of (beforeData.ayahs || [])) {
+                if (!afterAyahNos.has(before.aya_no)) {
+                    diffSet.add(before.aya_no);
+                }
+            }
+        }
+
+        function renderAyahs() {
+            const list = document.getElementById('ayahList');
+            const ayahs = afterData.ayahs || [];
+
+            if (ayahs.length === 0) {
+                list.innerHTML = '<div class="empty-state">No ayahs found in After data</div>';
+                return;
+            }
+
+            list.innerHTML = ayahs.map((ayah, idx) => {
+                const isChanged = diffSet.has(ayah.aya_no);
+                if (isChanged) {
+                    return renderChangedAyah(ayah, idx);
+                } else {
+                    return renderUnchangedAyah(ayah, idx);
+                }
+            }).join('');
+        }
+
+        function renderUnchangedAyah(ayah, idx) {
+            const text = ayah.aya_text || '';
+            const start = ayah.start_time || 0;
+            const end = ayah.end_time || 0;
+            return `
+                <div class="ayah-item unchanged" id="ayah-${idx}">
+                    <div class="unchanged-row">
+                        <span class="ayah-number">Ayah ${ayah.aya_no}</span>
+                        <div class="ayah-text">${text}</div>
+                        <span class="unchanged-timing">${fmtTime(start)} - ${fmtTime(end)}</span>
+                        <button class="play-range-btn play-after"
+                            onclick="playRange(${start}, ${end})">&#9654;</button>
+                    </div>
+                </div>`;
+        }
+
+        function renderChangedAyah(ayah, idx) {
+            const verdict = verdicts[ayah.aya_no] || '';
+            const text = ayah.aya_text || '';
+            const before = beforeMap[ayah.aya_no];
+
+            // Only in after (no before)
+            if (!before) {
+                return `
+                    <div class="ayah-item changed ${verdict}" id="ayah-${idx}">
+                        <div class="diff-header">
+                            <span class="ayah-number">Ayah ${ayah.aya_no}</span>
+                            <span style="color:#f59e0b;">Only in After</span>
+                            ${verdictButtons(ayah.aya_no)}
+                        </div>
+                        <div class="ayah-text">${text}</div>
+                        <div class="play-row">
+                            <button class="play-range-btn play-after"
+                                onclick="playRange(${ayah.start_time||0}, ${ayah.end_time||0})">&#9654; Play</button>
+                        </div>
+                    </div>`;
+            }
+
+            const bStart = before.start_time || 0;
+            const bEnd = before.end_time || 0;
+            const bDur = bEnd - bStart;
+            const aStart = ayah.start_time || 0;
+            const aEnd = ayah.end_time || 0;
+            const aDur = aEnd - aStart;
+            const startDelta = aStart - bStart;
+            const endDelta = aEnd - bEnd;
+
+            return `
+                <div class="ayah-item changed ${verdict}" data-ayah="${ayah.aya_no}" id="ayah-${idx}">
+                    <div class="diff-header">
+                        <span class="ayah-number">Ayah ${ayah.aya_no}</span>
+                        ${verdictButtons(ayah.aya_no)}
+                    </div>
+                    <div class="ayah-text">${text}</div>
+                    <div class="timing-compare">
+                        <div class="timing-col">
+                            <h4>Before</h4>
+                            <div class="timing-val">
+                                <span class="label">Start:</span> <span class="value">${fmtTime(bStart)}</span><br>
+                                <span class="label">End:</span> <span class="value">${fmtTime(bEnd)}</span><br>
+                                <span class="label">Duration:</span> <span class="value">${fmtDur(bDur)}</span>
+                            </div>
+                        </div>
+                        <div class="timing-col">
+                            <h4>After</h4>
+                            <div class="timing-val">
+                                <span class="label">Start:</span> <span class="value">${fmtTime(aStart)}</span><br>
+                                <span class="label">End:</span> <span class="value">${fmtTime(aEnd)}</span><br>
+                                <span class="label">Duration:</span> <span class="value">${fmtDur(aDur)}</span>
+                            </div>
+                        </div>
+                        <div class="timing-col">
+                            <h4>Delta</h4>
+                            <div class="timing-val">
+                                <span class="label">Start:</span> ${fmtDelta(startDelta)}<br>
+                                <span class="label">End:</span> ${fmtDelta(endDelta)}<br>
+                                <span class="label">Duration:</span> ${fmtDelta(aDur - bDur)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="play-row">
+                        <button class="play-range-btn play-before"
+                            onclick="playRange(${bStart}, ${bEnd})">&#9654; Play Before</button>
+                        <button class="play-range-btn play-after"
+                            onclick="playRange(${aStart}, ${aEnd})">&#9654; Play After</button>
+                    </div>
+                    <span class="words-toggle" onclick="toggleWords(${idx})">
+                        &#9660; Word timings diff (${(ayah.word_timings||[]).length} words)
+                    </span>
+                    <div class="words-section" id="words-${idx}">
+                        ${renderWordDiff(before.word_timings || [], ayah.word_timings || [])}
+                    </div>
+                </div>`;
+        }
+
+        function verdictButtons(ayahNo) {
+            const v = verdicts[ayahNo] || '';
+            return `<div class="verdict-btns">
+                <button class="verdict-btn approve ${v==='approved'?'active':''}"
+                    onclick="setVerdict(${ayahNo},'approved')">Approve</button>
+                <button class="verdict-btn flag ${v==='flagged'?'active':''}"
+                    onclick="setVerdict(${ayahNo},'flagged')">Flag</button>
+            </div>`;
+        }
+
+        function setVerdict(ayahNo, type) {
+            if (verdicts[ayahNo] === type) {
+                delete verdicts[ayahNo];
+            } else {
+                verdicts[ayahNo] = type;
+            }
+            renderAyahs();
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const totalAyahs = (afterData.ayahs || []).length;
+            const changed = diffSet.size;
+            const approved = Object.values(verdicts).filter(v => v === 'approved').length;
+            const flagged = Object.values(verdicts).filter(v => v === 'flagged').length;
+
+            document.getElementById('statTotal').textContent = `${totalAyahs} ayahs`;
+            document.getElementById('statChanged').textContent = `${changed} changed`;
+            document.getElementById('statApproved').textContent = `${approved} approved`;
+            document.getElementById('statFlagged').textContent = `${flagged} flagged`;
+        }
+
+        function renderWordDiff(beforeWords, afterWords) {
+            const maxLen = Math.max(beforeWords.length, afterWords.length);
+            if (maxLen === 0) return '<div style="color:#666">No word timings</div>';
+
+            let html = '<table class="word-diff-table"><tr>' +
+                '<th>Word</th><th>Ref</th>' +
+                '<th>Before Start</th><th>Before End</th>' +
+                '<th>After Start</th><th>After End</th>' +
+                '<th>Delta Start</th><th>Delta End</th></tr>';
+
+            for (let i = 0; i < maxLen; i++) {
+                const bw = beforeWords[i] || {};
+                const aw = afterWords[i] || {};
+                const startDelta = (aw.start || 0) - (bw.start || 0);
+                const endDelta = (aw.end || 0) - (bw.end || 0);
+                const changed = Math.abs(startDelta) > 0.05 || Math.abs(endDelta) > 0.05;
+
+                html += `<tr class="${changed ? 'changed' : ''}">
+                    <td class="word-text-col">${aw.word || bw.word || ''}</td>
+                    <td>${aw.word_ref || bw.word_ref || ''}</td>
+                    <td>${bw.start != null ? fmtTime(bw.start) : '-'}</td>
+                    <td>${bw.end != null ? fmtTime(bw.end) : '-'}</td>
+                    <td>${aw.start != null ? fmtTime(aw.start) : '-'}</td>
+                    <td>${aw.end != null ? fmtTime(aw.end) : '-'}</td>
+                    <td>${bw.start != null && aw.start != null ? fmtDelta(startDelta) : '-'}</td>
+                    <td>${bw.end != null && aw.end != null ? fmtDelta(endDelta) : '-'}</td>
+                </tr>`;
+            }
+
+            html += '</table>';
+            return html;
+        }
+
+        function toggleWords(idx) {
+            const el = document.getElementById(`words-${idx}`);
+            el.classList.toggle('expanded');
+        }
+
+        // Formatting helpers
+        function fmtTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+        }
+
+        function fmtDur(seconds) {
+            return `${(seconds * 1000).toFixed(0)}ms (${seconds.toFixed(3)}s)`;
+        }
+
+        function fmtDelta(delta) {
+            const ms = (delta * 1000).toFixed(0);
+            const sign = delta >= 0 ? '+' : '';
+            const cls = delta >= 0 ? 'delta-pos' : 'delta-neg';
+            return `<span class="${cls}">${sign}${ms}ms</span>`;
+        }
+
+        // Audio
+        async function loadAudio(surahNo) {
+            const mp3Url = getAudioPath(surahNo);
+
+            try {
+                const resp = await fetch(mp3Url, { method: 'HEAD' });
+                if (!resp.ok) throw new Error('not found');
+                audio.src = mp3Url;
+                audio.load();
+                audio.onloadedmetadata = () => {
+                    document.getElementById('seekSlider').disabled = false;
+                    document.getElementById('playBtn').disabled = false;
+                    document.getElementById('seekSlider').max = audio.duration;
+                };
+            } catch {
+                showError(`Audio not found: ${mp3Url}`);
+            }
+        }
+
+        function playRange(start, end) {
+            if (!audio.src) return;
+            audio.currentTime = start;
+            playStopTime = end;
+            audio.play();
+            document.getElementById('playBtn').innerHTML = '&#9646;&#9646;';
+        }
+
+        function togglePlay() {
+            if (audio.paused) {
+                playStopTime = null;
+                audio.play();
+                document.getElementById('playBtn').innerHTML = '&#9646;&#9646;';
+            } else {
+                audio.pause();
+                document.getElementById('playBtn').innerHTML = '&#9654;';
+            }
+        }
+
+        audio.ontimeupdate = () => {
+            const slider = document.getElementById('seekSlider');
+            slider.value = audio.currentTime;
+            const current = fmtTime(audio.currentTime);
+            const total = fmtTime(audio.duration || 0);
+            document.getElementById('timeDisplay').textContent = `${current} / ${total}`;
+
+            if (playStopTime !== null && audio.currentTime >= playStopTime) {
+                audio.pause();
+                playStopTime = null;
+                document.getElementById('playBtn').innerHTML = '&#9654;';
+            }
+        };
+
+        audio.onended = () => {
+            document.getElementById('playBtn').innerHTML = '&#9654;';
+            playStopTime = null;
+        };
+
+        document.getElementById('seekSlider').oninput = function() {
+            audio.currentTime = parseFloat(this.value);
+        };
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    audio.currentTime = Math.max(0, audio.currentTime - (e.shiftKey ? 1 : 0.1));
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + (e.shiftKey ? 1 : 0.1));
+                    break;
+            }
+        });
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            if (msg) { el.textContent = msg; el.style.display = 'block'; }
+            else { el.style.display = 'none'; }
+        }
+
+        init();
+    </script>
+</body>
+</html>

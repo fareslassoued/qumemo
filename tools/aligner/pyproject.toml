@@ -1,7 +1,7 @@
 [project]
 name = "quran-aligner"
-version = "0.1.0"
-description = "CTC forced alignment pipeline for Quran audio with Qaloon text"
+version = "0.2.0"
+description = "Whisper/CTC alignment pipeline for Quran audio with Qaloon text"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -10,10 +10,11 @@ dependencies = [
     "pyarabic>=0.6.15",
     "soundfile>=0.12.1",
     "librosa>=0.10.2",
-    "datasets>=2.19.0",
+    "datasets>=2.19.0,<4.0",
     "tqdm>=4.66.0",
     "requests>=2.31.0",
     "numpy>=1.26.0",
+    "rapidfuzz>=3.0.0",
 ]
 
 [project.optional-dependencies]
