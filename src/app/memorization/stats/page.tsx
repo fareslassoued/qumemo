@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
 import { MemorizationStats } from '@/types/memorization';
 
+const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
+
 function StatsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -24,7 +26,7 @@ function StatsPageContent() {
   if (!planId || !stats) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-gray-600 dark:text-gray-400">
+        <div className="text-xl" style={{ color: 'var(--dim)', ...uiFont }}>
           Loading...
         </div>
       </div>
@@ -32,17 +34,21 @@ function StatsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
+    <div className="min-h-screen p-4 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div
+          className="rounded-lg p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-              📊 Statistics & Progress
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--ink)', ...uiFont }}>
+              Statistics & Progress
             </h1>
             <button
               onClick={() => router.push(`/memorization?planId=${planId}`)}
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="hover:underline"
+              style={{ color: 'var(--gold)', ...uiFont }}
             >
               ← Back
             </button>
@@ -51,81 +57,96 @@ function StatsPageContent() {
 
         {/* Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div className="text-4xl font-bold text-green-600 dark:text-green-400">
+          <div
+            className="rounded-lg p-6 text-center"
+            style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+          >
+            <div className="text-4xl font-bold" style={{ color: '#6B8E4E' }}>
               {stats.masteredPages}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            <div className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
               Pages Mastered
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+          <div
+            className="rounded-lg p-6 text-center"
+            style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+          >
+            <div className="text-4xl font-bold" style={{ color: 'var(--gold)' }}>
               {stats.reviewPages}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            <div className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
               In Review
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div className="text-4xl font-bold text-yellow-600 dark:text-yellow-400">
+          <div
+            className="rounded-lg p-6 text-center"
+            style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+          >
+            <div className="text-4xl font-bold" style={{ color: '#C49A3C' }}>
               {stats.learningPages}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            <div className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
               Learning
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 text-center">
-            <div className="text-4xl font-bold text-gray-600 dark:text-gray-400">
+          <div
+            className="rounded-lg p-6 text-center"
+            style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+          >
+            <div className="text-4xl font-bold" style={{ color: 'var(--dim)' }}>
               {stats.newPages}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            <div className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
               Not Started
             </div>
           </div>
         </div>
 
         {/* Detailed Stats */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-6">
+        <div
+          className="rounded-lg p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
+          <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--ink)', ...uiFont }}>
             Performance Metrics
           </h2>
 
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Retention Rate</span>
-              <span className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Retention Rate</span>
+              <span className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {Math.round(stats.averageRetentionRate)}%
               </span>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Total Study Time</span>
-              <span className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Total Study Time</span>
+              <span className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {Math.round(stats.totalStudyTime)} min
               </span>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Average Session</span>
-              <span className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Average Session</span>
+              <span className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {Math.round(stats.averageSessionDuration)} min
               </span>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Current Streak</span>
-              <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {stats.currentStreak} 🔥
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Current Streak</span>
+              <span className="text-2xl font-bold" style={{ color: 'var(--gold)' }}>
+                {stats.currentStreak} days
               </span>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Longest Streak</span>
-              <span className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Longest Streak</span>
+              <span className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {stats.longestStreak} days
               </span>
             </div>
@@ -134,18 +155,21 @@ function StatsPageContent() {
 
         {/* Projection */}
         {stats.projectedCompletionDate && (
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-md p-6 text-white">
-            <h2 className="text-xl font-bold mb-2">
-              🎯 Projected Completion
+          <div
+            className="rounded-lg p-6"
+            style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)' }}
+          >
+            <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
+              Projected Completion
             </h2>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-bold" style={{ color: 'var(--gold)' }}>
               {stats.projectedCompletionDate.toLocaleDateString('en-US', {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
               })}
             </p>
-            <p className="text-sm mt-2 opacity-90">
+            <p className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
               Based on your current pace and daily goal
             </p>
           </div>
@@ -159,7 +183,7 @@ export default function StatsPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-gray-600 dark:text-gray-400">
+        <div className="text-xl" style={{ color: 'var(--dim)', ...uiFont }}>
           Loading...
         </div>
       </div>
