@@ -5,6 +5,8 @@ import { memorizationPlanService } from '@/services/memorizationPlanService';
 import { quranDataService } from '@/services/quranDataService';
 import { MemorizationPlan } from '@/types/memorization';
 
+const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
+
 interface SetupWizardProps {
   onComplete: (plan: MemorizationPlan) => void;
   onCancel?: () => void;
@@ -65,18 +67,21 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div
+        className="rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        style={{ background: 'var(--parchment)', border: '1px solid var(--divider)' }}
+      >
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-6" style={{ borderBottom: '1px solid var(--divider)' }}>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--ink)', ...uiFont }}>
               Setup Your Memorization Plan
             </h2>
             {onCancel && (
               <button
                 onClick={onCancel}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                style={{ color: 'var(--dim)' }}
               >
                 ✕
               </button>
@@ -86,13 +91,12 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
             {[1, 2, 3, 4].map((s) => (
               <div
                 key={s}
-                className={`flex-1 h-2 rounded-full ${
-                  s <= step ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
+                className="flex-1 h-2 rounded-full"
+                style={{ background: s <= step ? 'var(--gold)' : 'var(--divider)' }}
               />
             ))}
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
             Step {step} of 4
           </p>
         </div>
@@ -101,15 +105,21 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
         <div className="p-6">
           {step === 1 && (
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Choose Your Direction
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p style={{ color: 'var(--dim)', ...uiFont }}>
                 Which direction would you like to memorize?
               </p>
 
               <div className="space-y-4">
-                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <label
+                  className="flex items-center p-4 rounded-lg cursor-pointer transition-colors"
+                  style={{
+                    border: planData.direction === 'forward' ? '2px solid var(--gold)' : '2px solid var(--divider)',
+                    background: planData.direction === 'forward' ? 'var(--gold-glow)' : 'transparent',
+                  }}
+                >
                   <input
                     type="radio"
                     name="direction"
@@ -117,18 +127,25 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                     checked={planData.direction === 'forward'}
                     onChange={(e) => setPlanData({ ...planData, direction: e.target.value as 'forward' })}
                     className="w-5 h-5"
+                    style={{ accentColor: 'var(--gold)' }}
                   />
                   <div className="ml-4 flex-1">
-                    <div className="font-medium text-gray-800 dark:text-gray-200">
+                    <div className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
                       From Beginning (Al-Fatiha → An-Nas)
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
                       Traditional approach, starting with Surah Al-Fatiha
                     </div>
                   </div>
                 </label>
 
-                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-blue-500">
+                <label
+                  className="flex items-center p-4 rounded-lg cursor-pointer transition-colors"
+                  style={{
+                    border: planData.direction === 'backward' ? '2px solid var(--gold)' : '2px solid var(--divider)',
+                    background: planData.direction === 'backward' ? 'var(--gold-glow)' : 'transparent',
+                  }}
+                >
                   <input
                     type="radio"
                     name="direction"
@@ -136,12 +153,13 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                     checked={planData.direction === 'backward'}
                     onChange={(e) => setPlanData({ ...planData, direction: e.target.value as 'backward' })}
                     className="w-5 h-5"
+                    style={{ accentColor: 'var(--gold)' }}
                   />
                   <div className="ml-4 flex-1">
-                    <div className="font-medium text-gray-800 dark:text-gray-200">
-                      From End (An-Nas → Al-Fatiha) ⭐ Recommended
+                    <div className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
+                      From End (An-Nas → Al-Fatiha) — Recommended
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
                       Easier short surahs first (Juz 30), builds confidence
                     </div>
                   </div>
@@ -152,141 +170,135 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
 
           {step === 2 && (
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Set Your Daily Goal
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p style={{ color: 'var(--dim)', ...uiFont }}>
                 How much do you want to memorize each day?
               </p>
 
               <div className="space-y-4">
-                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <input
-                    type="radio"
-                    name="goal"
-                    value="quarter-page"
-                    checked={planData.dailyGoalType === 'quarter-page'}
-                    onChange={(e) => setPlanData({ ...planData, dailyGoalType: e.target.value as 'quarter-page' })}
-                    className="w-5 h-5"
-                  />
-                  <div className="ml-4 flex-1">
-                    <div className="font-medium text-gray-800 dark:text-gray-200">
-                      Quarter Page (~3-4 lines)
+                {[
+                  { value: 'quarter-page', label: 'Quarter Page (~3-4 lines)', desc: 'Gradual and steady, ~4-5 years to complete' },
+                  { value: 'half-page', label: 'Half Page (~7-8 lines) — Recommended', desc: 'Balanced pace, ~2-3 years to complete' },
+                  { value: 'full-page', label: 'Full Page (~15 lines)', desc: 'Ambitious, ~1.5-2 years to complete' },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-center p-4 rounded-lg cursor-pointer transition-colors"
+                    style={{
+                      border: planData.dailyGoalType === option.value ? '2px solid var(--gold)' : '2px solid var(--divider)',
+                      background: planData.dailyGoalType === option.value ? 'var(--gold-glow)' : 'transparent',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="goal"
+                      value={option.value}
+                      checked={planData.dailyGoalType === option.value}
+                      onChange={(e) => setPlanData({ ...planData, dailyGoalType: e.target.value as 'quarter-page' | 'half-page' | 'full-page' })}
+                      className="w-5 h-5"
+                      style={{ accentColor: 'var(--gold)' }}
+                    />
+                    <div className="ml-4 flex-1">
+                      <div className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
+                        {option.label}
+                      </div>
+                      <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
+                        {option.desc}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Gradual and steady, ~4-5 years to complete
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-blue-500">
-                  <input
-                    type="radio"
-                    name="goal"
-                    value="half-page"
-                    checked={planData.dailyGoalType === 'half-page'}
-                    onChange={(e) => setPlanData({ ...planData, dailyGoalType: e.target.value as 'half-page' })}
-                    className="w-5 h-5"
-                  />
-                  <div className="ml-4 flex-1">
-                    <div className="font-medium text-gray-800 dark:text-gray-200">
-                      Half Page (~7-8 lines) ⭐ Recommended
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Balanced pace, ~2-3 years to complete
-                    </div>
-                  </div>
-                </label>
-
-                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <input
-                    type="radio"
-                    name="goal"
-                    value="full-page"
-                    checked={planData.dailyGoalType === 'full-page'}
-                    onChange={(e) => setPlanData({ ...planData, dailyGoalType: e.target.value as 'full-page' })}
-                    className="w-5 h-5"
-                  />
-                  <div className="ml-4 flex-1">
-                    <div className="font-medium text-gray-800 dark:text-gray-200">
-                      Full Page (~15 lines)
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      Ambitious, ~1.5-2 years to complete
-                    </div>
-                  </div>
-                </label>
+                  </label>
+                ))}
               </div>
             </div>
           )}
 
           {step === 3 && (
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Current Progress
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p style={{ color: 'var(--dim)', ...uiFont }}>
                 Have you already memorized anything?
               </p>
 
               <div className="space-y-4">
-                <label className={`flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${!planData.hasExistingProgress ? 'border-blue-500 bg-blue-50 dark:bg-blue-900' : ''}`}>
+                <label
+                  className="flex items-start p-4 rounded-lg cursor-pointer transition-colors"
+                  style={{
+                    border: !planData.hasExistingProgress ? '2px solid var(--gold)' : '2px solid var(--divider)',
+                    background: !planData.hasExistingProgress ? 'var(--gold-glow)' : 'transparent',
+                  }}
+                >
                   <input
                     type="radio"
                     name="progress"
                     checked={!planData.hasExistingProgress}
                     onChange={() => setPlanData({ ...planData, hasExistingProgress: false, alreadyMemorized: [], alreadyMemorizedSurahs: [] })}
                     className="w-5 h-5 mt-1"
+                    style={{ accentColor: 'var(--gold)' }}
                   />
                   <div className="ml-4">
-                    <div className="font-medium text-gray-800 dark:text-gray-200">
-                      Starting Fresh ⭐
+                    <div className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
+                      Starting Fresh
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
                       I haven&apos;t memorized anything yet, or I want to review everything
                     </div>
                   </div>
                 </label>
 
-                <label className={`flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${planData.hasExistingProgress ? 'border-blue-500 bg-blue-50 dark:bg-blue-900' : ''}`}>
+                <label
+                  className="flex items-start p-4 rounded-lg cursor-pointer transition-colors"
+                  style={{
+                    border: planData.hasExistingProgress ? '2px solid var(--gold)' : '2px solid var(--divider)',
+                    background: planData.hasExistingProgress ? 'var(--gold-glow)' : 'transparent',
+                  }}
+                >
                   <input
                     type="radio"
                     name="progress"
                     checked={planData.hasExistingProgress}
                     onChange={() => setPlanData({ ...planData, hasExistingProgress: true })}
                     className="w-5 h-5 mt-1"
+                    style={{ accentColor: 'var(--gold)' }}
                   />
                   <div className="ml-4 flex-1">
-                    <div className="font-medium text-gray-800 dark:text-gray-200 mb-2">
+                    <div className="font-medium mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
                       Skip Already Memorized
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    <div className="text-sm mb-3" style={{ color: 'var(--dim)', ...uiFont }}>
                       Mark what you&apos;ve already fully mastered
                     </div>
 
                     {planData.hasExistingProgress && (
                       <div className="mt-4 space-y-3">
                         {/* Toggle between Pages and Surahs */}
-                        <div className="flex gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                        <div className="flex gap-2 rounded-lg p-1" style={{ background: 'var(--surface)' }}>
                           <button
                             type="button"
                             onClick={() => setPlanData({ ...planData, progressType: 'surahs' })}
-                            className={`flex-1 py-2 px-3 rounded transition-colors ${
-                              planData.progressType === 'surahs'
-                                ? 'bg-white dark:bg-gray-600 shadow font-medium'
-                                : 'hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
+                            className="flex-1 py-2 px-3 rounded transition-colors"
+                            style={{
+                              background: planData.progressType === 'surahs' ? 'var(--parchment)' : 'transparent',
+                              color: 'var(--ink)',
+                              fontWeight: planData.progressType === 'surahs' ? 500 : 400,
+                              ...uiFont,
+                            }}
                           >
                             By Surah
                           </button>
                           <button
                             type="button"
                             onClick={() => setPlanData({ ...planData, progressType: 'pages' })}
-                            className={`flex-1 py-2 px-3 rounded transition-colors ${
-                              planData.progressType === 'pages'
-                                ? 'bg-white dark:bg-gray-600 shadow font-medium'
-                                : 'hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
+                            className="flex-1 py-2 px-3 rounded transition-colors"
+                            style={{
+                              background: planData.progressType === 'pages' ? 'var(--parchment)' : 'transparent',
+                              color: 'var(--ink)',
+                              fontWeight: planData.progressType === 'pages' ? 500 : 400,
+                              ...uiFont,
+                            }}
                           >
                             By Page
                           </button>
@@ -294,8 +306,8 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
 
                         {/* Surah Selection */}
                         {planData.progressType === 'surahs' && (
-                          <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">
-                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          <div className="p-3 rounded" style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}>
+                            <div className="text-sm font-medium mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
                               Select memorized surahs:
                             </div>
                             <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
@@ -311,18 +323,19 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                                         : [...planData.alreadyMemorizedSurahs, surah.number]
                                     });
                                   }}
-                                  className={`px-2 py-2 text-xs rounded transition-colors text-left ${
-                                    planData.alreadyMemorizedSurahs.includes(surah.number)
-                                      ? 'bg-green-500 text-white'
-                                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                                  }`}
+                                  className="px-2 py-2 text-xs rounded transition-colors text-left"
+                                  style={{
+                                    background: planData.alreadyMemorizedSurahs.includes(surah.number) ? '#6B8E4E' : 'var(--divider)',
+                                    color: planData.alreadyMemorizedSurahs.includes(surah.number) ? '#fff' : 'var(--ink)',
+                                    ...uiFont,
+                                  }}
                                 >
                                   <div className="font-medium">{surah.number}. {surah.englishName}</div>
                                   <div className="text-[10px] opacity-75">{surah.numberOfAyahs} ayahs</div>
                                 </button>
                               ))}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            <div className="text-xs mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
                               {planData.alreadyMemorizedSurahs.length} surah{planData.alreadyMemorizedSurahs.length !== 1 ? 's' : ''} selected
                             </div>
                           </div>
@@ -330,8 +343,8 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
 
                         {/* Page Selection */}
                         {planData.progressType === 'pages' && (
-                          <div className="p-3 bg-white dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">
-                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          <div className="p-3 rounded" style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}>
+                            <div className="text-sm font-medium mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
                               Select memorized pages:
                             </div>
                             <div className="grid grid-cols-5 gap-1 max-h-48 overflow-y-auto">
@@ -347,17 +360,18 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                                         : [...planData.alreadyMemorized, page]
                                     });
                                   }}
-                                  className={`px-2 py-1 text-xs rounded transition-colors ${
-                                    planData.alreadyMemorized.includes(page)
-                                      ? 'bg-green-500 text-white'
-                                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                                  }`}
+                                  className="px-2 py-1 text-xs rounded transition-colors"
+                                  style={{
+                                    background: planData.alreadyMemorized.includes(page) ? '#6B8E4E' : 'var(--divider)',
+                                    color: planData.alreadyMemorized.includes(page) ? '#fff' : 'var(--ink)',
+                                    ...uiFont,
+                                  }}
                                 >
                                   {page}
                                 </button>
                               ))}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            <div className="text-xs mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
                               {planData.alreadyMemorized.length} page{planData.alreadyMemorized.length !== 1 ? 's' : ''} selected
                             </div>
                           </div>
@@ -372,22 +386,23 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
 
           {step === 4 && (
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Study Schedule
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p style={{ color: 'var(--dim)', ...uiFont }}>
                 When do you prefer to study? (Optional)
               </p>
 
               <div className="space-y-4">
                 <label className="block">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
                     Preferred Study Time
                   </span>
                   <select
                     value={planData.studyTime}
                     onChange={(e) => setPlanData({ ...planData, studyTime: e.target.value as 'morning' | 'afternoon' | 'evening' | 'night' | 'flexible' })}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                    className="mt-1 block w-full px-3 py-2 rounded-md"
+                    style={{ background: 'var(--surface)', border: '1px solid var(--divider)', color: 'var(--ink)', ...uiFont }}
                   >
                     <option value="flexible">Flexible</option>
                     <option value="morning">Morning</option>
@@ -397,9 +412,9 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                   </select>
                 </label>
 
-                <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    💡 Tip: Consistency is more important than the time of day. Choose when you&apos;re most alert and can study without interruptions.
+                <div className="p-4 rounded-lg" style={{ background: 'var(--gold-glow)' }}>
+                  <p className="text-sm" style={{ color: 'var(--ink)', ...uiFont }}>
+                    Tip: Consistency is more important than the time of day. Choose when you&apos;re most alert and can study without interruptions.
                   </p>
                 </div>
               </div>
@@ -408,11 +423,12 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+        <div className="p-6 flex justify-between" style={{ borderTop: '1px solid var(--divider)' }}>
           {step > 1 ? (
             <button
               onClick={handleBack}
-              className="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              className="px-6 py-2 rounded transition-colors"
+              style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
             >
               Back
             </button>
@@ -423,16 +439,18 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
           {step < 4 ? (
             <button
               onClick={handleNext}
-              className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              className="px-6 py-2 text-white rounded transition-colors"
+              style={{ background: 'var(--gold)', ...uiFont }}
             >
               Next
             </button>
           ) : (
             <button
               onClick={handleComplete}
-              className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors font-medium"
+              className="px-6 py-2 text-white rounded transition-colors font-medium"
+              style={{ background: 'var(--gold)', ...uiFont }}
             >
-              Start Memorizing! 🚀
+              Start Memorizing!
             </button>
           )}
         </div>

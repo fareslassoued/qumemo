@@ -5,6 +5,8 @@ import { recordingService } from '@/services/recordingService';
 import { storageService } from '@/services/storageService';
 import { Recording } from '@/types/quran';
 
+const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
+
 interface VoiceRecorderProps {
   pageNumber: number;
   onRecordingComplete?: (recording: Recording) => void;
@@ -132,12 +134,15 @@ export function VoiceRecorder({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border border-gray-200 dark:border-gray-700">
+    <div
+      className="rounded-lg p-4"
+      style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+    >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
           Voice Recording
         </h3>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>
           Page {pageNumber}
         </div>
       </div>
@@ -147,7 +152,8 @@ export function VoiceRecorder({
         {!isRecording ? (
           <button
             onClick={handleStartRecording}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-white rounded-full font-medium transition-colors"
+            style={{ background: '#A0522D', ...uiFont }}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -160,21 +166,26 @@ export function VoiceRecorder({
           </button>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900 rounded-full">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-sm font-mono font-medium text-red-700 dark:text-red-300">
+            <div
+              className="flex items-center gap-2 px-4 py-2 rounded-full"
+              style={{ background: 'var(--gold-glow)' }}
+            >
+              <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#A0522D' }} />
+              <span className="text-sm font-mono font-medium" style={{ color: 'var(--ink)' }}>
                 {formatTime(recordingTime)}
               </span>
             </div>
             <button
               onClick={handleStopRecording}
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full font-medium transition-colors"
+              className="px-4 py-2 text-white rounded-full font-medium transition-colors"
+              style={{ background: 'var(--gold)', ...uiFont }}
             >
               Stop & Save
             </button>
             <button
               onClick={handleCancelRecording}
-              className="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-full font-medium transition-colors"
+              className="px-4 py-2 rounded-full font-medium transition-colors"
+              style={{ background: 'var(--divider)', color: 'var(--ink)', ...uiFont }}
             >
               Cancel
             </button>
@@ -186,12 +197,13 @@ export function VoiceRecorder({
       {recordings.length > 0 && (
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+            <div className="text-xs font-semibold" style={{ color: 'var(--dim)', ...uiFont }}>
               Previous Recordings ({recordings.length})
             </div>
             <button
               onClick={handleClearAllRecordings}
-              className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+              className="text-xs px-2 py-1 rounded transition-colors"
+              style={{ background: 'var(--gold-glow)', color: '#A0522D', ...uiFont }}
             >
               Clear All
             </button>
@@ -199,13 +211,15 @@ export function VoiceRecorder({
           {recordings.map((recording) => (
             <div
               key={recording.id}
-              className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600"
+              className="flex items-center justify-between p-2 rounded"
+              style={{ background: 'var(--parchment)', border: '1px solid var(--divider)' }}
             >
               <div className="flex items-center gap-2 flex-1">
                 <button
                   onClick={() => handlePlayRecording(recording)}
                   disabled={playingId === recording.id}
-                  className="w-8 h-8 flex items-center justify-center bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-full transition-colors"
+                  className="w-8 h-8 flex items-center justify-center text-white rounded-full transition-colors"
+                  style={{ background: 'var(--gold)', opacity: playingId === recording.id ? 0.6 : 1 }}
                 >
                   {playingId === recording.id ? (
                     <svg className="w-4 h-4 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
@@ -222,10 +236,10 @@ export function VoiceRecorder({
                   )}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-gray-600 dark:text-gray-300 font-medium">
+                  <div className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
                     {formatTime(Math.round(recording.duration))}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs" style={{ color: 'var(--dim)' }}>
                     {new Date(recording.createdAt).toLocaleDateString()}
                   </div>
                 </div>
@@ -233,7 +247,8 @@ export function VoiceRecorder({
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => handleDownloadRecording(recording)}
-                  className="p-1 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="p-1 transition-colors"
+                  style={{ color: 'var(--dim)' }}
                   title="Download"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -246,7 +261,8 @@ export function VoiceRecorder({
                 </button>
                 <button
                   onClick={() => handleDeleteRecording(recording.id)}
-                  className="p-1 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                  className="p-1 transition-colors"
+                  style={{ color: 'var(--dim)' }}
                   title="Delete"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

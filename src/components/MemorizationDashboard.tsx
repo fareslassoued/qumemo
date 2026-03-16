@@ -8,6 +8,8 @@ import { MemorizationPlan, MemorizationStats } from '@/types/memorization';
 import { useRouter } from 'next/navigation';
 import { getNextSurahToMemorize } from '@/utils/surahDetection';
 
+const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
+
 interface MemorizationDashboardProps {
   plan: MemorizationPlan;
 }
@@ -47,7 +49,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
   if (!stats || !todaySummary) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-gray-600 dark:text-gray-400">Loading...</div>
+        <div className="text-xl" style={{ color: 'var(--dim)', ...uiFont }}>Loading...</div>
       </div>
     );
   }
@@ -92,21 +94,24 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
   const currentSurahInfo = getCurrentSurahInfo();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
+    <div className="p-4 sm:p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div
+          className="rounded-lg p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200">
+              <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--ink)', ...uiFont }}>
                 {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">{plan.name}</p>
+              <p className="mt-1" style={{ color: 'var(--dim)', ...uiFont }}>{plan.name}</p>
             </div>
             {plan.currentStreak > 0 && (
               <div className="text-right">
-                <div className="text-3xl sm:text-4xl">🔥</div>
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <div className="text-3xl sm:text-4xl" style={{ color: 'var(--gold)' }}>&#9733;</div>
+                <div className="text-sm font-medium" style={{ color: 'var(--dim)', ...uiFont }}>
                   {plan.currentStreak} day streak
                 </div>
               </div>
@@ -116,40 +121,40 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
           {/* Quick Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-2xl font-bold" style={{ color: '#6B8E4E' }}>
                 {stats.masteredPages}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Mastered</div>
+              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Mastered</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-2xl font-bold" style={{ color: 'var(--gold)' }}>
                 {stats.reviewPages}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">In Review</div>
+              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>In Review</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+              <div className="text-2xl font-bold" style={{ color: '#C49A3C' }}>
                 {stats.learningPages}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Learning</div>
+              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Learning</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+              <div className="text-2xl font-bold" style={{ color: 'var(--dim)' }}>
                 {Math.round(plan.completionPercentage)}%
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Complete</div>
+              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Complete</div>
             </div>
           </div>
 
           {/* Progress Bar */}
           <div className="mt-6">
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+            <div className="w-full rounded-full h-3" style={{ background: 'var(--divider)' }}>
               <div
-                className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${plan.completionPercentage}%` }}
+                className="h-3 rounded-full transition-all duration-500"
+                style={{ background: 'var(--gold)', width: `${plan.completionPercentage}%` }}
               />
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
+            <p className="text-xs mt-2 text-center" style={{ color: 'var(--dim)', ...uiFont }}>
               {stats.masteredPages} of {stats.totalPages} pages mastered
             </p>
           </div>
@@ -157,24 +162,27 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
         {/* Current Surah Progress */}
         {currentSurahInfo && (
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900 dark:to-blue-900 rounded-lg shadow-md p-6">
+          <div
+            className="rounded-lg p-6"
+            style={{ background: 'var(--surface)', borderLeft: '3px solid var(--gold)', border: '1px solid var(--divider)', borderLeftWidth: '3px', borderLeftColor: 'var(--gold)' }}
+          >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="text-sm text-purple-600 dark:text-purple-300 font-medium">
-                  📖 Current Surah {plan.direction === 'backward' && '(Memorizing from beginning →)'}
+                <div className="text-sm font-medium" style={{ color: 'var(--gold)', ...uiFont }}>
+                  Current Surah {plan.direction === 'backward' && '(Memorizing from beginning →)'}
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mt-1">
+                <h2 className="text-2xl font-bold mt-1" style={{ color: 'var(--ink)', ...uiFont }}>
                   {currentSurahInfo.number}. {currentSurahInfo.englishName}
                 </h2>
-                <div className="text-lg text-gray-600 dark:text-gray-400 mt-1">
+                <div className="text-lg mt-1" style={{ color: 'var(--dim)' }}>
                   {currentSurahInfo.nameArabic}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-300">
+                <div className="text-3xl font-bold" style={{ color: 'var(--gold)' }}>
                   {currentSurahInfo.progress}%
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">
+                <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>
                   Complete
                 </div>
               </div>
@@ -182,36 +190,36 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
             <div className="grid grid-cols-3 gap-4 mt-4 text-center">
               <div>
-                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                <div className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>
                   {currentSurahInfo.numberOfAyahs}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Ayahs</div>
+                <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Ayahs</div>
               </div>
               <div>
-                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                <div className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>
                   {currentSurahInfo.completedPages}/{currentSurahInfo.totalPages}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Pages</div>
+                <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Pages</div>
               </div>
               <div>
-                <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                <div className="text-lg font-semibold" style={{ color: 'var(--ink)' }}>
                   {currentSurahInfo.revelationType}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">Type</div>
+                <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Type</div>
               </div>
             </div>
 
             {plan.direction === 'backward' && (
-              <div className="mt-3 text-xs text-center text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-800 rounded-lg py-2">
-                💡 Each surah is memorized from its beginning, even though your plan moves backward through the Quran
+              <div className="mt-3 text-xs text-center rounded-lg py-2" style={{ background: 'var(--gold-glow)', color: 'var(--ink)', ...uiFont }}>
+                Each surah is memorized from its beginning, even though your plan moves backward through the Quran
               </div>
             )}
 
             <div className="mt-4">
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="w-full rounded-full h-2" style={{ background: 'var(--divider)' }}>
                 <div
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${currentSurahInfo.progress}%` }}
+                  className="h-2 rounded-full transition-all duration-500"
+                  style={{ background: 'var(--gold)', width: `${currentSurahInfo.progress}%` }}
                 />
               </div>
             </div>
@@ -219,31 +227,33 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
         )}
 
         {/* Today's Session */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-            📚 Today&apos;s Session
+        <div
+          className="rounded-lg p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
+          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--ink)', ...uiFont }}>
+            Today&apos;s Session
           </h2>
 
           {hasWork ? (
             <div className="space-y-4">
               {/* Reviews */}
               {todaySummary.reviewsTotal > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-4">
+                <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">⏰</span>
                       <div>
-                        <div className="font-semibold text-blue-900 dark:text-blue-100">
+                        <div className="font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                           Reviews Due: {todaySummary.reviewsTotal} page{todaySummary.reviewsTotal !== 1 ? 's' : ''}
                         </div>
                         {todaySummary.reviewsOverdue > 0 && (
-                          <div className="text-sm text-red-700 dark:text-red-300">
-                            ⚠️ {todaySummary.reviewsOverdue} overdue
+                          <div className="text-sm" style={{ color: '#A0522D', ...uiFont }}>
+                            {todaySummary.reviewsOverdue} overdue
                           </div>
                         )}
                         {todaySummary.reviewsCritical > 0 && (
-                          <div className="text-sm text-orange-700 dark:text-orange-300">
-                            🔴 {todaySummary.reviewsCritical} critical
+                          <div className="text-sm" style={{ color: '#C49A3C', ...uiFont }}>
+                            {todaySummary.reviewsCritical} critical
                           </div>
                         )}
                       </div>
@@ -259,19 +269,18 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                 const surahInfo = surahNum ? quranDataService.getSurahInfo(surahNum) : null;
 
                 return (
-                  <div className="bg-green-50 dark:bg-green-900 rounded-lg p-4">
+                  <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl">✨</span>
                       <div className="flex-1">
-                        <div className="font-semibold text-green-900 dark:text-green-100">
+                        <div className="font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                           New Material Ready
                         </div>
                         {surahInfo && (
-                          <div className="text-sm text-green-700 dark:text-green-300">
+                          <div className="text-sm" style={{ color: 'var(--gold)', ...uiFont }}>
                             {surahInfo.englishName} ({surahInfo.nameArabic})
                           </div>
                         )}
-                        <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        <div className="text-xs mt-1" style={{ color: 'var(--dim)', ...uiFont }}>
                           Page {todaySummary.newMaterial.join(', ')}
                         </div>
                       </div>
@@ -283,14 +292,15 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
               {/* Start Button */}
               <button
                 onClick={handleStartSession}
-                className="w-full py-4 bg-gradient-to-r from-blue-500 to-green-500 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-green-600 transition-all transform hover:scale-105 shadow-lg"
+                className="w-full py-4 text-white font-semibold rounded-lg transition-all"
+                style={{ background: 'var(--gold)', ...uiFont }}
               >
                 {todaySummary.hasSession ? 'Continue Session →' : 'Start Session →'}
               </button>
 
               {todaySummary.hasSession && (
                 <div className="text-center space-y-2">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
                     You have an active session from earlier today
                   </p>
                   <div className="flex gap-2 justify-center">
@@ -304,9 +314,10 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                           }
                         }
                       }}
-                      className="text-sm px-3 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800"
+                      className="text-sm px-3 py-1 rounded"
+                      style={{ background: 'var(--gold-glow)', color: '#6B8E4E', ...uiFont }}
                     >
-                      ✅ Mark Done
+                      Mark Done
                     </button>
                     <button
                       onClick={() => {
@@ -335,9 +346,10 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                           setTimeout(() => handleStartSession(), 100);
                         }
                       }}
-                      className="text-sm px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
+                      className="text-sm px-3 py-1 rounded"
+                      style={{ background: 'var(--gold-glow)', color: 'var(--gold)', ...uiFont }}
                     >
-                      🔄 Start Fresh Session
+                      Start Fresh Session
                     </button>
                   </div>
                 </div>
@@ -345,26 +357,26 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
             </div>
           ) : (
             <div className="text-center py-8">
-              <div className="text-6xl mb-4">🎉</div>
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+              <div className="text-6xl mb-4">&#127881;</div>
+              <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
                 All Caught Up!
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p style={{ color: 'var(--dim)', ...uiFont }}>
                 No reviews due today. Great work on staying consistent!
               </p>
               {todaySummary.nextSessionDate && (
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900 rounded-lg inline-block">
-                  <div className="text-sm text-blue-700 dark:text-blue-300">
-                    📅 Next Session Due
+                <div className="mt-4 p-3 rounded-lg inline-block" style={{ background: 'var(--gold-glow)' }}>
+                  <div className="text-sm" style={{ color: 'var(--gold)', ...uiFont }}>
+                    Next Session Due
                   </div>
-                  <div className="text-lg font-semibold text-blue-900 dark:text-blue-100 mt-1">
+                  <div className="text-lg font-semibold mt-1" style={{ color: 'var(--ink)', ...uiFont }}>
                     {todaySummary.nextSessionDate.toLocaleDateString('en-US', {
                       weekday: 'long',
                       month: 'long',
                       day: 'numeric',
                     })}
                   </div>
-                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  <div className="text-xs mt-1" style={{ color: 'var(--dim)', ...uiFont }}>
                     {Math.ceil((todaySummary.nextSessionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} day{Math.ceil((todaySummary.nextSessionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''} from now
                   </div>
                 </div>
@@ -374,63 +386,67 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
         </div>
 
         {/* Statistics Overview */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div
+          className="rounded-lg p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-              📊 Statistics
+            <h2 className="text-xl font-bold" style={{ color: 'var(--ink)', ...uiFont }}>
+              Statistics
             </h2>
             <button
               onClick={handleViewStats}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm hover:underline"
+              style={{ color: 'var(--gold)', ...uiFont }}
             >
               View Details →
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
+              <div className="text-sm mb-1" style={{ color: 'var(--dim)', ...uiFont }}>
                 Retention Rate
               </div>
-              <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <div className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {Math.round(stats.averageRetentionRate)}%
               </div>
             </div>
 
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
+              <div className="text-sm mb-1" style={{ color: 'var(--dim)', ...uiFont }}>
                 Study Time
               </div>
-              <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <div className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {Math.round(stats.totalStudyTime)} min
               </div>
             </div>
 
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
+              <div className="text-sm mb-1" style={{ color: 'var(--dim)', ...uiFont }}>
                 Longest Streak
               </div>
-              <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <div className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {stats.longestStreak} days
               </div>
             </div>
 
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+            <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
+              <div className="text-sm mb-1" style={{ color: 'var(--dim)', ...uiFont }}>
                 Avg Session
               </div>
-              <div className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              <div className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {Math.round(stats.averageSessionDuration)} min
               </div>
             </div>
           </div>
 
           {stats.projectedCompletionDate && (
-            <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900 rounded-lg">
-              <div className="text-sm text-purple-700 dark:text-purple-300">
-                📅 Projected Completion
+            <div className="mt-4 p-4 rounded-lg" style={{ background: 'var(--gold-glow)', border: '1px solid var(--gold)' }}>
+              <div className="text-sm" style={{ color: 'var(--gold)', ...uiFont }}>
+                Projected Completion
               </div>
-              <div className="text-lg font-semibold text-purple-900 dark:text-purple-100 mt-1">
+              <div className="text-lg font-semibold mt-1" style={{ color: 'var(--ink)', ...uiFont }}>
                 {stats.projectedCompletionDate.toLocaleDateString('en-US', {
                   month: 'long',
                   day: 'numeric',
@@ -442,22 +458,25 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
         </div>
 
         {/* Plan Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-            ⚙️ Plan Settings
+        <div
+          className="rounded-lg p-6"
+          style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
+        >
+          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--ink)', ...uiFont }}>
+            Plan Settings
           </h2>
 
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Direction:</span>
-              <span className="font-medium text-gray-800 dark:text-gray-200">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Direction:</span>
+              <span className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
                 {plan.direction === 'forward' ? 'Beginning → End' : 'End → Beginning'}
               </span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Daily Goal:</span>
-              <span className="font-medium text-gray-800 dark:text-gray-200">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Daily Goal:</span>
+              <span className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
                 {plan.dailyGoal.type === 'full-page' && 'Full Page'}
                 {plan.dailyGoal.type === 'half-page' && 'Half Page'}
                 {plan.dailyGoal.type === 'quarter-page' && 'Quarter Page'}
@@ -466,30 +485,31 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Study Time:</span>
-              <span className="font-medium text-gray-800 dark:text-gray-200 capitalize">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Study Time:</span>
+              <span className="font-medium capitalize" style={{ color: 'var(--ink)', ...uiFont }}>
                 {plan.studyTime}
               </span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Started:</span>
-              <span className="font-medium text-gray-800 dark:text-gray-200">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Started:</span>
+              <span className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
                 {plan.startDate.toLocaleDateString()}
               </span>
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid var(--divider)' }}>
             {plan.pausedAt ? (
               <button
                 onClick={() => {
                   memorizationPlanService.resumePlan(plan.id);
                   window.location.reload();
                 }}
-                className="w-full py-2 bg-green-500 text-white hover:bg-green-600 rounded transition-colors"
+                className="w-full py-2 text-white rounded transition-colors"
+                style={{ background: '#6B8E4E', ...uiFont }}
               >
-                ▶️ Resume Plan
+                Resume Plan
               </button>
             ) : (
               <button
@@ -499,9 +519,10 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                     window.location.reload();
                   }
                 }}
-                className="w-full py-2 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900 rounded transition-colors"
+                className="w-full py-2 rounded transition-colors"
+                style={{ color: 'var(--gold)', ...uiFont }}
               >
-                ⏸️ Pause Plan
+                Pause Plan
               </button>
             )}
 
@@ -512,9 +533,10 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                   window.location.reload();
                 }
               }}
-              className="w-full py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+              className="w-full py-2 rounded transition-colors"
+              style={{ color: '#A0522D', ...uiFont }}
             >
-              🔄 Reset All Progress
+              Reset All Progress
             </button>
           </div>
         </div>

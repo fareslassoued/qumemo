@@ -13,6 +13,8 @@ import { Recording } from '@/types/quran';
 import { useRouter } from 'next/navigation';
 import { getCurrentSurahForPage } from '@/utils/surahDetection';
 
+const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
+
 interface ReviewSessionProps {
   planId: string;
 }
@@ -191,7 +193,7 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   if (!session) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-gray-600 dark:text-gray-400">Loading session...</div>
+        <div className="text-xl" style={{ color: 'var(--dim)', ...uiFont }}>Loading session...</div>
       </div>
     );
   }
@@ -201,13 +203,14 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+          <div className="text-6xl mb-4">&#127881;</div>
+          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
             Session Complete!
           </h2>
           <button
             onClick={() => router.push(`/memorization?planId=${planId}`)}
-            className="mt-4 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className="mt-4 px-6 py-3 text-white rounded-lg"
+            style={{ background: 'var(--gold)', ...uiFont }}
           >
             Back to Dashboard
           </button>
@@ -221,14 +224,14 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 p-4">
+      <div className="p-4" style={{ background: 'var(--bar-bg)', borderBottom: '1px solid var(--divider)' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {isNewMaterial() ? '✨ New Material' : '⏰ Review'} • {currentIndex + 1} of {getTotalItems()}
+              <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
+                {isNewMaterial() ? 'New Material' : 'Review'} &bull; {currentIndex + 1} of {getTotalItems()}
               </div>
-              <div className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <div className="text-lg font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Page {currentPage}
               </div>
               {(() => {
@@ -237,8 +240,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
                   const surahInfo = quranDataService.getSurahInfo(surahNum);
                   if (surahInfo) {
                     return (
-                      <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                        📖 Focusing on: {surahInfo.englishName} (Surah {surahNum})
+                      <div className="text-xs mt-1" style={{ color: 'var(--gold)', ...uiFont }}>
+                        Focusing on: {surahInfo.englishName} (Surah {surahNum})
                       </div>
                     );
                   }
@@ -253,7 +256,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
                   router.push(`/memorization?planId=${planId}`);
                 }
               }}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              className="px-4 py-2 rounded"
+              style={{ color: 'var(--dim)', ...uiFont }}
             >
               Exit
             </button>
@@ -262,10 +266,10 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
 
         {/* Progress Bar */}
         <div className="max-w-6xl mx-auto mt-4">
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div className="w-full rounded-full h-2" style={{ background: 'var(--divider)' }}>
             <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${((currentIndex + 1) / getTotalItems()) * 100}%` }}
+              className="h-2 rounded-full transition-all duration-300"
+              style={{ background: 'var(--gold)', width: `${((currentIndex + 1) / getTotalItems()) * 100}%` }}
             />
           </div>
         </div>
@@ -290,20 +294,20 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
       </div>
 
       {/* Action Panel */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 p-4">
+      <div className="p-4" style={{ background: 'var(--bar-bg)', borderTop: '1px solid var(--divider)' }}>
         <div className="max-w-6xl mx-auto">
           {!showGrading ? (
             <div className="space-y-3">
               {/* Recorder Toggle */}
               {showRecorder && (
-                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="mb-4 p-4 rounded-lg" style={{ background: 'var(--surface)' }}>
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                    <h3 className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
                       Record Your Recitation
                     </h3>
                     <button
                       onClick={() => setShowRecorder(false)}
-                      className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                      style={{ color: 'var(--dim)' }}
                     >
                       ✕
                     </button>
@@ -318,49 +322,53 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <button
                   onClick={() => setMemorizationAyahsHidden(!memorizationAyahsHidden)}
-                  className="py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  className="py-3 rounded-lg transition-colors"
+                  style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
                 >
-                  {memorizationAyahsHidden ? '👁️ Show' : '🙈 Hide'} Ayahs
+                  {memorizationAyahsHidden ? 'Show' : 'Hide'} Ayahs
                 </button>
 
                 <button
                   onClick={() => setShowRecorder(!showRecorder)}
-                  className={`py-3 rounded-lg transition-colors ${
-                    showRecorder
-                      ? 'bg-red-500 text-white hover:bg-red-600'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
+                  className="py-3 rounded-lg transition-colors"
+                  style={{
+                    background: showRecorder ? '#A0522D' : 'var(--surface)',
+                    color: showRecorder ? '#fff' : 'var(--ink)',
+                    ...uiFont,
+                  }}
                 >
-                  🎤 {showRecorder ? 'Close' : 'Record'}
+                  {showRecorder ? 'Close' : 'Record'}
                 </button>
 
                 <button
                   onClick={handleReadyToGrade}
-                  className="py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                  className="py-3 text-white rounded-lg transition-colors font-medium"
+                  style={{ background: 'var(--gold)', ...uiFont }}
                 >
                   Grade →
                 </button>
               </div>
 
-              <p className="text-sm text-center text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-center" style={{ color: 'var(--dim)', ...uiFont }}>
                 {isNewMaterial()
                   ? 'Practice this new page, then grade yourself'
                   : currentRecordingId
-                  ? '✅ Recording saved! Ready to grade'
+                  ? 'Recording saved! Ready to grade'
                   : 'Recite from memory, optionally record, then grade'
                 }
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-center text-gray-800 dark:text-gray-200">
+              <h3 className="text-lg font-semibold text-center" style={{ color: 'var(--ink)', ...uiFont }}>
                 How well did you remember?
               </h3>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button
                   onClick={() => handleGrade(1)}
-                  className="py-4 px-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                  className="py-4 px-3 text-white rounded-lg transition-colors"
+                  style={{ background: '#A0522D', ...uiFont }}
                 >
                   <div className="font-bold text-lg">Again</div>
                   <div className="text-xs mt-1">Couldn&apos;t recall</div>
@@ -369,7 +377,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
 
                 <button
                   onClick={() => handleGrade(3)}
-                  className="py-4 px-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                  className="py-4 px-3 text-white rounded-lg transition-colors"
+                  style={{ background: '#C49A3C', ...uiFont }}
                 >
                   <div className="font-bold text-lg">Hard</div>
                   <div className="text-xs mt-1">With difficulty</div>
@@ -378,7 +387,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
 
                 <button
                   onClick={() => handleGrade(4)}
-                  className="py-4 px-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  className="py-4 px-3 text-white rounded-lg transition-colors"
+                  style={{ background: 'var(--gold)', ...uiFont }}
                 >
                   <div className="font-bold text-lg">Good</div>
                   <div className="text-xs mt-1">Some effort</div>
@@ -387,7 +397,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
 
                 <button
                   onClick={() => handleGrade(5)}
-                  className="py-4 px-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  className="py-4 px-3 text-white rounded-lg transition-colors"
+                  style={{ background: '#6B8E4E', ...uiFont }}
                 >
                   <div className="font-bold text-lg">Easy</div>
                   <div className="text-xs mt-1">Perfect recall</div>
@@ -397,7 +408,8 @@ export function ReviewSession({ planId }: ReviewSessionProps) {
 
               <button
                 onClick={() => setShowGrading(false)}
-                className="w-full py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                className="w-full py-2 rounded transition-colors"
+                style={{ color: 'var(--dim)', ...uiFont }}
               >
                 ← Back
               </button>
