@@ -1,68 +1,117 @@
 @import "tailwindcss";
 
+/* ── Sanctuary Design Tokens ─────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --parchment: #F7F2E4;
+  --ink:       #1C1207;
+  --gold:      #B5862C;
+  --gold-glow: rgba(181, 134, 44, 0.18);
+  --divider:   #DDD4BC;
+  --surface:   #EDE5CC;
+  --dim:       #7A6A50;
+  --bar-bg:    #F2EDD5;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-qaloon: var(--font-qaloon);
-}
-
+/* System dark mode (no manual override) */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not(.light):not(.dark) {
+    --parchment: #0D0A06;
+    --ink:       #E8DFC8;
+    --gold:      #C9972E;
+    --gold-glow: rgba(201, 151, 46, 0.15);
+    --divider:   #2A2317;
+    --surface:   #19140D;
+    --dim:       #7A6A50;
+    --bar-bg:    #13100A;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Manual dark override */
+:root.dark {
+  --parchment: #0D0A06;
+  --ink:       #E8DFC8;
+  --gold:      #C9972E;
+  --gold-glow: rgba(201, 151, 46, 0.15);
+  --divider:   #2A2317;
+  --surface:   #19140D;
+  --dim:       #7A6A50;
+  --bar-bg:    #13100A;
 }
 
-/* Quran Text Styling */
+/* Manual light override */
+:root.light {
+  --parchment: #F7F2E4;
+  --ink:       #1C1207;
+  --gold:      #B5862C;
+  --gold-glow: rgba(181, 134, 44, 0.18);
+  --divider:   #DDD4BC;
+  --surface:   #EDE5CC;
+  --dim:       #7A6A50;
+  --bar-bg:    #F2EDD5;
+}
+
+/* ── Tailwind v4 theme tokens ─────────────────────────── */
+@theme inline {
+  --color-parchment: var(--parchment);
+  --color-ink:       var(--ink);
+  --color-gold:      var(--gold);
+  --color-surface:   var(--surface);
+  --color-divider:   var(--divider);
+  --color-dim:       var(--dim);
+  --color-bar:       var(--bar-bg);
+
+  --font-sans:   var(--font-garamond);
+  --font-qaloon: var(--font-qaloon);
+}
+
+/* ── Base ─────────────────────────────────────────────── */
+body {
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: var(--font-garamond), Georgia, 'Times New Roman', serif;
+}
+
+/* ── Quran Text ───────────────────────────────────────── */
 .quran-text {
   font-family: var(--font-qaloon);
-  font-size: 1.25rem;
-  line-height: 2.2;
-  text-align: center;
+  font-size: 1.3rem;
+  line-height: 2.5;
   direction: rtl;
+  unicode-bidi: bidi-override;
+  text-align: justify;
+  text-justify: inter-word;
 }
 
 @media (min-width: 640px) {
   .quran-text {
-    font-size: 1.5rem;
-    line-height: 2.5;
+    font-size: 1.6rem;
+    line-height: 2.7;
   }
 }
 
-/* Touch optimization */
+@media (min-width: 1024px) {
+  .quran-text {
+    font-size: 1.9rem;
+    line-height: 2.9;
+  }
+}
+
+/* ── Touch ────────────────────────────────────────────── */
 .touch-manipulation {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Ayah spans ───────────────────────────────────────── */
 .ayah {
   display: inline;
-  padding: 0.25rem;
-  transition: background-color 0.2s;
-}
-
-.ayah:hover {
-  background-color: rgba(var(--foreground), 0.05);
-  cursor: pointer;
 }
 
 .ayah.hidden .ayah-text {
   color: transparent;
   user-select: none;
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: var(--divider);
+  border-radius: 3px;
 }
 
 .ayah.hidden .ayah-number {
@@ -71,5 +120,11 @@ body {
 }
 
 .ayah.highlighted {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--gold-glow);
+  border-radius: 3px;
+}
+
+/* ── Range input (audio scrubber) ─────────────────────── */
+input[type='range'] {
+  accent-color: var(--gold);
 }

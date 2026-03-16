@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { qaloonFont } from "./fonts";
+import { qaloonFont, garamondFont } from "./fonts";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${qaloonFont.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${qaloonFont.variable} ${garamondFont.variable} antialiased`}
       >
         {children}
       </body>

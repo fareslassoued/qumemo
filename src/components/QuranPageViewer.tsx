@@ -13,6 +13,8 @@ interface QuranPageViewerProps {
   onAyahClick?: (ayah: Ayah) => void;
   highlightedAyah?: { surah: number; ayah: number } | null;
   onSurahPlayClick?: (surahNumber: number) => void;
+  /** When true, hides the built-in prev/next navigation bars (parent controls navigation) */
+  hideNavigation?: boolean;
 }
 
 export function QuranPageViewer({
@@ -23,6 +25,7 @@ export function QuranPageViewer({
   onAyahClick,
   highlightedAyah,
   onSurahPlayClick,
+  hideNavigation = false,
 }: QuranPageViewerProps) {
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
 
@@ -45,7 +48,6 @@ export function QuranPageViewer({
   };
 
   const isAyahHidden = (ayahNumber: number) => {
-    // If hiddenAyahs has items, we're in memorization mode regardless of the flag
     const isMemorizationMode = memorizationMode || hiddenAyahs.length > 0;
     return isMemorizationMode && hiddenAyahs.includes(ayahNumber);
   };
@@ -59,137 +61,192 @@ export function QuranPageViewer({
 
   if (!pageInfo) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-xl">Loading page {pageNumber}...</div>
+      <div className="flex items-center justify-center h-full text-dim font-sans text-sm">
+        Loading…
       </div>
     );
   }
 
-  // Group ayahs by surah for better rendering
+  // Group ayahs by surah
   const ayahsBySurah = pageInfo.ayahs.reduce((acc: Record<number, Ayah[]>, ayah: Ayah) => {
-    if (!acc[ayah.sura_no]) {
-      acc[ayah.sura_no] = [];
-    }
+    if (!acc[ayah.sura_no]) acc[ayah.sura_no] = [];
     acc[ayah.sura_no].push(ayah);
     return acc;
   }, {} as Record<number, Ayah[]>);
 
-  return (
-    <div className="flex flex-col h-screen">
-      {/* Header */}
-      <div className="bg-gray-100 dark:bg-gray-800 p-2 sm:p-4 border-b border-gray-300 dark:border-gray-700">
-        <div className="flex justify-between items-center max-w-4xl mx-auto">
-          <button
-            onClick={handlePreviousPage}
-            disabled={pageNumber === 1}
-            className="px-2 sm:px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-600 text-sm sm:text-base touch-manipulation"
-          >
-            <span className="hidden sm:inline">← Previous</span>
-            <span className="sm:hidden">←</span>
-          </button>
+  const content = (
+    <div className="max-w-2xl mx-auto px-4 sm:px-8 py-6">
+      {Object.entries(ayahsBySurah).map(([surahNo, ayahs]: [string, Ayah[]]) => (
+        <div key={surahNo} className="mb-10">
 
-          <div className="text-center">
-            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-              Page {pageNumber} of {quranDataService.getTotalPages()}
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-500">
-              Juz {pageInfo.juz}
-            </div>
-          </div>
+          {/* Surah header — only shown at ayah 1 */}
+          {ayahs[0].aya_no === 1 && (
+            <div className="mb-8 text-center select-none">
+              {/* Top ornamental line */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--gold))' }} />
+                <span style={{ color: 'var(--gold)', fontSize: '0.6rem' }}>✦ ✦ ✦</span>
+                <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--gold))' }} />
+              </div>
 
-          <button
-            onClick={handleNextPage}
-            disabled={pageNumber === quranDataService.getTotalPages()}
-            className="px-2 sm:px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-600 text-sm sm:text-base touch-manipulation"
-          >
-            <span className="hidden sm:inline">Next →</span>
-            <span className="sm:hidden">→</span>
-          </button>
-        </div>
-      </div>
+              {/* Play button + surah Arabic name */}
+              <div className="relative inline-block">
+                {onSurahPlayClick && (
+                  <button
+                    onClick={() => onSurahPlayClick(parseInt(surahNo))}
+                    className="absolute -right-10 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-all hover:scale-110 touch-manipulation"
+                    style={{ background: 'var(--gold)', color: 'var(--parchment)' }}
+                    title={`Play ${ayahs[0].sura_name_en}`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                    </svg>
+                  </button>
+                )}
+                <div className="quran-text text-4xl sm:text-5xl mb-1" style={{ color: 'var(--ink)' }}>
+                  {ayahs[0].sura_name_ar}
+                </div>
+              </div>
 
-      {/* Page Content */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-amber-50 dark:bg-gray-900">
-        <div className="max-w-4xl mx-auto">
-          {/* Display by Surah */}
-          {Object.entries(ayahsBySurah).map(([surahNo, ayahs]: [string, Ayah[]]) => (
-            <div key={surahNo} className="mb-8">
-              {/* Surah Header */}
-              {ayahs[0].aya_no === 1 && (
-                <div className="mb-6">
-                  <div className="relative text-center py-4 bg-gradient-to-r from-amber-200 to-amber-300 dark:from-gray-800 dark:to-gray-700 rounded-lg shadow-md">
-                    {/* Play Button */}
-                    {onSurahPlayClick && (
-                      <button
-                        onClick={() => onSurahPlayClick(parseInt(surahNo))}
-                        className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-full shadow-lg transition-all hover:scale-110 touch-manipulation"
-                        title={`Play ${ayahs[0].sura_name_en}`}
-                      >
-                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                        </svg>
-                      </button>
-                    )}
+              <div
+                className="text-xs tracking-[0.25em] uppercase mt-2 mb-1"
+                style={{ color: 'var(--gold)', fontFamily: 'var(--font-garamond), Georgia, serif' }}
+              >
+                {ayahs[0].sura_name_en}
+              </div>
 
-                    <div className="text-3xl quran-text mb-2">
-                      {ayahs[0].sura_name_ar}
-                    </div>
-                    <div className="text-sm text-gray-700 dark:text-gray-300">
-                      {ayahs[0].sura_name_en}
-                    </div>
-                  </div>
-
-                  {/* Bismillah (except for Surah 9) */}
-                  {parseInt(surahNo) !== 1 && parseInt(surahNo) !== 9 && (
-                    <div className="text-center my-6 quran-text text-2xl">
-                      بِسۡمِ اللهِ الرَّحۡمٰنِ الرَّحِيمِ
-                    </div>
-                  )}
+              {/* Bismillah (not for 1 or 9) */}
+              {parseInt(surahNo) !== 1 && parseInt(surahNo) !== 9 && (
+                <div
+                  className="quran-text text-xl sm:text-2xl mt-5"
+                  style={{ color: 'var(--dim)' }}
+                >
+                  بِسۡمِ اللهِ الرَّحۡمٰنِ الرَّحِيمِ
                 </div>
               )}
 
-              {/* Ayahs */}
-              <div className="quran-text text-justify leading-loose">
-                {ayahs.map((ayah: Ayah) => {
-                  const ayahText = getAyahTextWithoutNumber(ayah.aya_text);
-                  const ayahNumber = extractAyahNumber(ayah.aya_text);
-
-                  return (
-                    <span
-                      key={ayah.id}
-                      onClick={() => onAyahClick?.(ayah)}
-                      className={`ayah ${
-                        isAyahHidden(ayah.aya_no) ? 'hidden' : ''
-                      } ${
-                        isAyahHighlighted(ayah.sura_no, ayah.aya_no)
-                          ? 'highlighted'
-                          : ''
-                      }`}
-                      data-surah={ayah.sura_no}
-                      data-ayah={ayah.aya_no}
-                    >
-                      <span className="ayah-text">{ayahText}</span>
-                      {ayahNumber && <span className="ayah-number"> {ayahNumber}</span>}
-                      {' '}
-                    </span>
-                  );
-                })}
+              {/* Bottom ornamental line */}
+              <div className="flex items-center gap-3 mt-5">
+                <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, var(--gold))' }} />
+                <span style={{ color: 'var(--gold)', fontSize: '0.6rem' }}>✦ ✦ ✦</span>
+                <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, var(--gold))' }} />
               </div>
             </div>
-          ))}
+          )}
+
+          {/* Ayah text block */}
+          <div className="quran-text">
+            {ayahs.map((ayah: Ayah) => {
+              const ayahText = getAyahTextWithoutNumber(ayah.aya_text);
+              const ayahNumber = extractAyahNumber(ayah.aya_text);
+
+              return (
+                <span
+                  key={ayah.id}
+                  onClick={() => onAyahClick?.(ayah)}
+                  className={`ayah ${isAyahHidden(ayah.aya_no) ? 'hidden' : ''} ${
+                    isAyahHighlighted(ayah.sura_no, ayah.aya_no) ? 'highlighted' : ''
+                  }`}
+                  data-surah={ayah.sura_no}
+                  data-ayah={ayah.aya_no}
+                >
+                  <span className="ayah-text">{ayahText}</span>
+                  {ayahNumber && (
+                    <span
+                      className="ayah-number inline-block mx-0.5 text-[0.75em] align-middle"
+                      style={{ color: 'var(--gold)' }}
+                    >
+                      {ayahNumber}
+                    </span>
+                  )}
+                  {' '}
+                </span>
+              );
+            })}
+          </div>
         </div>
+      ))}
+
+      {/* Hidden ayahs indicator */}
+      {hiddenAyahs.length > 0 && (
+        <div
+          className="text-center text-xs py-2"
+          style={{ color: 'var(--dim)', fontFamily: 'var(--font-garamond), Georgia, serif' }}
+        >
+          {hiddenAyahs.length} ayahs hidden
+        </div>
+      )}
+    </div>
+  );
+
+  // Immersive mode: just the scrollable content
+  if (hideNavigation) {
+    return (
+      <div className="h-full overflow-y-auto" style={{ background: 'var(--parchment)' }}>
+        {content}
+      </div>
+    );
+  }
+
+  // Default mode: with navigation bars (used in memorization etc.)
+  return (
+    <div className="flex flex-col h-full" style={{ background: 'var(--parchment)' }}>
+      {/* Navigation header */}
+      <div
+        className="shrink-0 flex justify-between items-center px-4 py-2.5 border-b"
+        style={{ background: 'var(--bar-bg)', borderColor: 'var(--divider)' }}
+      >
+        <button
+          onClick={handlePreviousPage}
+          disabled={pageNumber === 1}
+          className="px-3 py-1.5 rounded text-sm transition-colors touch-manipulation disabled:opacity-30"
+          style={{
+            background: 'var(--gold)',
+            color: 'var(--parchment)',
+            fontFamily: 'var(--font-garamond), Georgia, serif',
+          }}
+        >
+          ← Prev
+        </button>
+
+        <div
+          className="text-center text-xs"
+          style={{ color: 'var(--dim)', fontFamily: 'var(--font-garamond), Georgia, serif' }}
+        >
+          <div>Page {pageNumber} of {quranDataService.getTotalPages()}</div>
+          <div style={{ color: 'var(--gold)' }}>Juz {pageInfo.juz}</div>
+        </div>
+
+        <button
+          onClick={handleNextPage}
+          disabled={pageNumber === quranDataService.getTotalPages()}
+          className="px-3 py-1.5 rounded text-sm transition-colors touch-manipulation disabled:opacity-30"
+          style={{
+            background: 'var(--gold)',
+            color: 'var(--parchment)',
+            fontFamily: 'var(--font-garamond), Georgia, serif',
+          }}
+        >
+          Next →
+        </button>
       </div>
 
-      {/* Footer - Page Info */}
-      <div className="bg-gray-100 dark:bg-gray-800 p-3 border-t border-gray-300 dark:border-gray-700">
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-          {pageInfo.ayahs.length} ayahs on this page
-          {hiddenAyahs.length > 0 && (
-            <span className="ml-4 text-orange-600 dark:text-orange-400">
-              {hiddenAyahs.length} ayahs hidden
-            </span>
-          )}
-        </div>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto">
+        {content}
+      </div>
+
+      {/* Footer */}
+      <div
+        className="shrink-0 py-2.5 border-t text-center text-xs"
+        style={{
+          background: 'var(--bar-bg)',
+          borderColor: 'var(--divider)',
+          color: 'var(--dim)',
+          fontFamily: 'var(--font-garamond), Georgia, serif',
+        }}
+      >
+        {pageInfo.ayahs.length} ayahs on this page
       </div>
     </div>
   );
