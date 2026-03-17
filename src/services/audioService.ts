@@ -16,6 +16,16 @@ class AudioService {
   private repeatCounter: number = 0;
   private listeners: Map<string, Set<(data?: unknown) => void>> = new Map();
 
+  // Range playback state for bilquran ritual
+  private rangeState: {
+    active: boolean;
+    surah: number;
+    startTime: number;
+    endTime: number;
+    repeatsLeft: number;
+    timeupdateHandler: (() => void) | null;
+  } = { active: false, surah: 0, startTime: 0, endTime: 0, repeatsLeft: 0, timeupdateHandler: null };
+
   constructor() {
     if (typeof window !== 'undefined') {
       this.audio = new Audio();
@@ -311,9 +321,120 @@ class AudioService {
   }
 
   /**
+   * Play a time range within a surah audio, repeating N times.
+   * Used by the bilquran ritual for the Listen phase.
+   * Loads audio independently of play() to avoid race conditions with AudioPlayer.
+   */
+  async playRange(surah: number, startTime: number, endTime: number, repeatCount: number): Promise<void> {
+    if (!this.audio) return;
+
+    // Clean up any existing range handler and stop current playback
+    this.stopRange();
+    this.audio.pause();
+
+    this.rangeState = {
+      active: true,
+      surah,
+      startTime,
+      endTime,
+      repeatsLeft: repeatCount,
+      timeupdateHandler: null,
+    };
+
+    // Get audio URL (triggers download if needed)
+    const audioUrl = await audioDownloadService.getAudioUrl(surah);
+    if (!audioUrl || !this.audio) {
+      this.stopRange();
+      return;
+    }
+
+    try {
+      // Load audio source if different from current
+      const currentSrc = this.audio.src;
+      const needsNewSource = !currentSrc ||
+                            (!currentSrc.endsWith(audioUrl) && !audioUrl.includes(currentSrc));
+
+      if (needsNewSource) {
+        this.audio.currentTime = 0;
+        this.audio.src = audioUrl;
+        this.audio.playbackRate = this.settings.playbackSpeed;
+
+        await new Promise<void>((resolve, reject) => {
+          if (!this.audio) { reject(new Error('Audio element not available')); return; }
+
+          const onCanPlay = () => {
+            this.audio?.removeEventListener('canplay', onCanPlay);
+            this.audio?.removeEventListener('error', onError);
+            resolve();
+          };
+          const onError = (e: Event) => {
+            this.audio?.removeEventListener('canplay', onCanPlay);
+            this.audio?.removeEventListener('error', onError);
+            reject(e);
+          };
+
+          this.audio.addEventListener('canplay', onCanPlay, { once: true });
+          this.audio.addEventListener('error', onError, { once: true });
+          this.audio.load();
+        });
+      }
+
+      if (!this.audio || !this.rangeState.active) return;
+
+      // Seek to range start
+      this.audio.currentTime = startTime;
+      this.currentSurah = surah;
+
+      // Set up timeupdate handler for range boundaries
+      const onTimeUpdate = () => {
+        if (!this.audio || !this.rangeState.active) return;
+
+        if (this.audio.currentTime >= this.rangeState.endTime) {
+          this.rangeState.repeatsLeft--;
+
+          if (this.rangeState.repeatsLeft > 0) {
+            this.audio.currentTime = this.rangeState.startTime;
+          } else {
+            this.audio.pause();
+            this.stopRange();
+            this.emit('range-complete');
+          }
+        }
+      };
+
+      this.rangeState.timeupdateHandler = onTimeUpdate;
+      this.audio.addEventListener('timeupdate', onTimeUpdate);
+
+      await this.audio.play();
+    } catch (error) {
+      console.error('Error in playRange:', error);
+      this.stopRange();
+      this.emit('error', error);
+    }
+  }
+
+  /**
+   * Stop range playback and clean up handler
+   */
+  stopRange(): void {
+    if (this.rangeState.timeupdateHandler && this.audio) {
+      this.audio.removeEventListener('timeupdate', this.rangeState.timeupdateHandler);
+    }
+    this.rangeState = { active: false, surah: 0, startTime: 0, endTime: 0, repeatsLeft: 0, timeupdateHandler: null };
+  }
+
+  /**
+   * Check if range playback is active
+   */
+  isRangePlaying(): boolean {
+    return this.rangeState.active;
+  }
+
+  /**
    * Cleanup
    */
   destroy(): void {
+    this.stopRange();
     if (this.audio) {
       this.audio.pause();
       this.audio.src = '';

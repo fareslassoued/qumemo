@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
-import { ReviewSession } from '@/components/ReviewSession';
+import { BilQuranSession } from '@/components/BilQuranSession';
 import { useSearchParams } from 'next/navigation';
 
 const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
@@ -25,7 +25,7 @@ function ReviewPageContent() {
     );
   }
 
-  return <ReviewSession planId={planId} />;
+  return <BilQuranSession planId={planId} />;
 }
 
 export default function ReviewPage() {
