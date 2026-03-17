@@ -207,7 +207,7 @@ describe('Surah Detection Logic', () => {
   });
 
   describe('Consistency across components', () => {
-    it('Dashboard and ReviewSession should get same surah for same state', () => {
+    it('Dashboard and BilQuranSession should get same surah for same state', () => {
       const sharedState = {
         progress: [{ pageNumber: 604 }], // Surah 114 started
         direction: 'backward' as const,
@@ -227,7 +227,7 @@ describe('Surah Detection Logic', () => {
       // Call from Dashboard context
       const dashboardResult = getNextSurahToMemorize(mockPlanId, sharedState.direction);
 
-      // Call from ReviewSession context (new material)
+      // Call from BilQuranSession context (new material)
       const sessionResult = getCurrentSurahForPage(mockPlanId, 603, true);
 
       // Both should return Surah 113

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { memorizationPlanService } from '@/services/memorizationPlanService';
+import { bilQuranService } from '@/services/bilQuranService';
 import { MemorizationStats } from '@/types/memorization';
 
 const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
@@ -18,7 +18,7 @@ function StatsPageContent() {
     setPlanId(id);
 
     if (id) {
-      const planStats = memorizationPlanService.getStatistics(id);
+      const planStats = bilQuranService.getStatistics(id);
       setStats(planStats);
     }
   }, [searchParams]);
@@ -62,10 +62,10 @@ function StatsPageContent() {
             style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
           >
             <div className="text-4xl font-bold" style={{ color: '#6B8E4E' }}>
-              {stats.masteredPages}
+              {stats.memorizedPages}
             </div>
             <div className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
-              Pages Mastered
+              Memorized
             </div>
           </div>
 
@@ -74,10 +74,10 @@ function StatsPageContent() {
             style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
           >
             <div className="text-4xl font-bold" style={{ color: 'var(--gold)' }}>
-              {stats.reviewPages}
+              {stats.inRitualPages}
             </div>
             <div className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
-              In Review
+              In Ritual
             </div>
           </div>
 
@@ -86,10 +86,10 @@ function StatsPageContent() {
             style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
           >
             <div className="text-4xl font-bold" style={{ color: '#C49A3C' }}>
-              {stats.learningPages}
+              {stats.rotationCycleLength}
             </div>
             <div className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
-              Learning
+              Review Cycle (days)
             </div>
           </div>
 
@@ -112,28 +112,14 @@ function StatsPageContent() {
           style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}
         >
           <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--ink)', ...uiFont }}>
-            Performance Metrics
+            Performance
           </h2>
 
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span style={{ color: 'var(--dim)', ...uiFont }}>Retention Rate</span>
-              <span className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
-                {Math.round(stats.averageRetentionRate)}%
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center">
               <span style={{ color: 'var(--dim)', ...uiFont }}>Total Study Time</span>
               <span className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
                 {Math.round(stats.totalStudyTime)} min
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span style={{ color: 'var(--dim)', ...uiFont }}>Average Session</span>
-              <span className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
-                {Math.round(stats.averageSessionDuration)} min
               </span>
             </div>
 
@@ -170,7 +156,7 @@ function StatsPageContent() {
               })}
             </p>
             <p className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
-              Based on your current pace and daily goal
+              Based on half-page/day pace
             </p>
           </div>
         )}

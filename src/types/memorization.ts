@@ -1,127 +1,96 @@
 /**
- * Types for Spaced Repetition Memorization System
+ * Types for "بالقرآن نحيا" Structured Memorization Method
+ *
+ * Replaces SM-2 spaced repetition with a proven ritual-based approach:
+ * Listen 2x → Read 15x → Recite 3x error-free, with rotating chunk review.
  */
 
-// Memorization Progress for each page/section
-export interface MemorizationProgress {
-  pageNumber: number;
-  section?: 'full' | 'first-half' | 'second-half' | 'lines-1-5' | 'lines-6-10' | 'lines-11-15';
-  status: 'new' | 'learning' | 'review' | 'mastered';
-
-  // SM-2 Algorithm fields
-  easinessFactor: number;      // 1.3-2.5, starts at 2.5
-  interval: number;             // days until next review
-  repetitions: number;          // successful review count
-
-  // Scheduling
-  nextReviewDate: Date;
-  lastReviewDate?: Date;
-  lastGrade?: 0 | 1 | 2 | 3 | 4 | 5;  // 0=blackout, 5=perfect
-
-  // Statistics
-  totalReviews: number;
-  successfulReviews: number;
-  averageGrade: number;
-  timeSpent: number;            // total minutes spent
-
-  createdAt: Date;
-  updatedAt: Date;
+// Ritual step tracking for new material
+export interface HifzRitual {
+  listenCount: number;       // target: 2
+  readCount: number;         // target: 15
+  reciteCount: number;       // target: 3 (error-free only)
+  surahLinkDone: boolean;    // 3rd recitation from surah start
 }
 
-// Memorization Plan (user's study program)
+// Per-page memorization progress
+export interface MemorizationProgress {
+  pageNumber: number;
+  status: 'new' | 'in-ritual' | 'memorized';
+  ritual: HifzRitual;
+  lastReviewDate?: string;   // ISO string for JSON serialization
+  timesReviewed: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Review rotation chunk
+export interface ReviewChunk {
+  id: string;
+  surahNumber: number;
+  startAyah: number;
+  endAyah: number;
+  pages: number[];
+  memorizedAt: string;       // ISO string
+}
+
+// Rotation state
+export interface ReviewRotation {
+  planId: string;
+  chunks: ReviewChunk[];
+  currentIndex: number;
+  lastReviewDate?: string;   // ISO string
+}
+
+// Daily study session
+export interface StudySession {
+  id: string;
+  planId: string;
+  date: string;              // ISO string
+  newMaterial?: {
+    pageNumber: number;
+    ritual: HifzRitual;
+    completed: boolean;
+  };
+  reviewChunk?: {
+    chunkId: string;
+    completed: boolean;
+  };
+  duration: number;          // minutes
+  completed: boolean;
+  createdAt: string;
+  completedAt?: string;
+}
+
+// Memorization plan
 export interface MemorizationPlan {
   id: string;
   name: string;
   active: boolean;
-
-  // Goal Settings
-  dailyGoal: {
-    type: 'full-page' | 'half-page' | 'quarter-page' | 'custom-lines';
-    linesPerDay?: number;       // if custom
-  };
-
-  // Direction & Range
-  direction: 'forward' | 'backward';  // From beginning or end
+  dailyGoal: { type: 'half-page' };  // fixed to half-page
+  direction: 'forward' | 'backward';
   startPage: number;
-  endPage: number;              // 604 by default
+  endPage: number;
   currentPage: number;
-
-  // Schedule
   studyTime?: 'morning' | 'afternoon' | 'evening' | 'night' | 'flexible';
   reminderEnabled: boolean;
-  reminderTime?: string;        // "08:00"
-
-  // Dates
-  startDate: Date;
-  targetCompletionDate?: Date;
-  pausedAt?: Date;              // for pause/resume
-
-  // Statistics
-  totalDaysActive: number;
+  startDate: string;         // ISO string
+  pausedAt?: string;
   currentStreak: number;
   longestStreak: number;
   completionPercentage: number;
-
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// Daily Study Session
-export interface StudySession {
-  id: string;
-  planId: string;
-  date: Date;
-
-  // Session content
-  reviewQueue: number[];        // page numbers to review
-  newMaterial: number[];        // new pages to learn
-
-  // Results
-  completedReviews: Record<number, {
-    grade: 0 | 1 | 2 | 3 | 4 | 5;
-    timeSpent: number;
-    recordingId?: string;
-  }>;
-  completedNew: number[];
-
-  // Metrics
-  duration: number;             // minutes
-  completed: boolean;
-  skipped: boolean;
-
-  createdAt: Date;
-  completedAt?: Date;
-}
-
-// Review Queue Item (for today's reviews)
-export interface ReviewItem {
-  pageNumber: number;
-  section?: string;
-  daysOverdue: number;          // 0 if due today, >0 if overdue
-  lastGrade: number;
-  consecutiveFailures: number;  // prioritize struggling pages
-  priority: 'critical' | 'high' | 'medium' | 'low';
-}
-
-// SM-2 Review Result
-export interface ReviewResult {
-  newEasinessFactor: number;
-  newInterval: number;
-  newRepetitions: number;
-  nextReviewDate: Date;
-  status: 'new' | 'learning' | 'review' | 'mastered';
-}
-
-// Memorization Statistics
+// Statistics for dashboard
 export interface MemorizationStats {
   totalPages: number;
+  memorizedPages: number;
+  inRitualPages: number;
   newPages: number;
-  learningPages: number;
-  reviewPages: number;
-  masteredPages: number;
-  averageRetentionRate: number;
+  rotationCycleLength: number;  // days to review everything
   totalStudyTime: number;
-  averageSessionDuration: number;
   currentStreak: number;
   longestStreak: number;
   projectedCompletionDate?: Date;
