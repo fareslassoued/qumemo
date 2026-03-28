@@ -53,3 +53,14 @@ ASR_FEATURE_PLAN.md
 
 # Keep the audio directory structure but ignore MP3 files
 !/public/audio/.gitkeep
+
+# Aligner pipeline data (regenerable)
+tools/aligner/dataset/
+tools/aligner/cache/
+tools/aligner/output/*.bak
+
+# Reference PDFs (personal)
+*.pdf
+
+# Misc screenshots
+image.png

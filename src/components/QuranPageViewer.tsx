@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { quranDataService } from '@/services/quranDataService';
 import { Ayah, PageInfo } from '@/types/quran';
+import { WordRevealState } from '@/types/recitation';
 import { extractAyahNumber, getAyahTextWithoutNumber } from '@/utils/ayahUtils';
 
 interface QuranPageViewerProps {
@@ -15,6 +16,10 @@ interface QuranPageViewerProps {
   onSurahPlayClick?: (surahNumber: number) => void;
   /** When true, hides the built-in prev/next navigation bars (parent controls navigation) */
   hideNavigation?: boolean;
+  /** Word-level reveal state for recitation tracking. When provided, renders words as individual spans. */
+  wordRevealState?: WordRevealState;
+  /** 'reveal' hides text until matched (memorization), 'follow' keeps text visible with gold highlight */
+  highlightMode?: 'reveal' | 'follow';
 }
 
 export function QuranPageViewer({
@@ -26,6 +31,8 @@ export function QuranPageViewer({
   highlightedAyah,
   onSurahPlayClick,
   hideNavigation = false,
+  wordRevealState,
+  highlightMode = 'reveal',
 }: QuranPageViewerProps) {
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null);
 
@@ -144,13 +151,48 @@ export function QuranPageViewer({
                 <span
                   key={ayah.id}
                   onClick={() => onAyahClick?.(ayah)}
-                  className={`ayah ${isAyahHidden(ayah.aya_no) ? 'hidden' : ''} ${
+                  className={`ayah ${isAyahHidden(ayah.aya_no) && !wordRevealState ? 'hidden' : ''} ${
                     isAyahHighlighted(ayah.sura_no, ayah.aya_no) ? 'highlighted' : ''
                   }`}
                   data-surah={ayah.sura_no}
                   data-ayah={ayah.aya_no}
                 >
-                  <span className="ayah-text">{ayahText}</span>
+                  {wordRevealState ? (
+                    // Word-level rendering for recitation tracking
+                    <span className="ayah-text">
+                      {ayahText.split(/\s+/).filter(Boolean).map((word, wi) => {
+                        const wordRef = `${ayah.sura_no}:${ayah.aya_no}:${wi + 1}`;
+                        const isRevealed = wordRevealState.revealed.has(wordRef);
+                        const isError = wordRevealState.errors.has(wordRef);
+                        const isCurrent = wordRevealState.currentWord === wordRef;
+
+                        let wordClass: string;
+                        if (highlightMode === 'follow') {
+                          // Follow mode: text always visible, gold highlight
+                          if (isCurrent) wordClass = 'word-following';
+                          else if (isRevealed) wordClass = 'word-followed';
+                          else wordClass = 'word-ahead';
+                        } else {
+                          // Reveal mode: text hidden until matched
+                          if (isError) wordClass = 'word-error';
+                          else if (isRevealed) wordClass = 'word-revealed';
+                          else if (isCurrent) wordClass = 'word-current';
+                          else wordClass = 'word-hidden';
+                        }
+
+                        return (
+                          <React.Fragment key={wordRef}>
+                            {wi > 0 && ' '}
+                            <span className={`recitation-word ${wordClass}`} data-word-ref={wordRef}>
+                              {word}
+                            </span>
+                          </React.Fragment>
+                        );
+                      })}
+                    </span>
+                  ) : (
+                    <span className="ayah-text">{ayahText}</span>
+                  )}
                   {ayahNumber && (
                     <span
                       className="ayah-number inline-block mx-0.5 text-[0.75em] align-middle"

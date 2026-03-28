@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
-import { reviewQueueService } from '@/services/reviewQueueService';
+import { bilQuranService } from '@/services/bilQuranService';
+import { sessionService } from '@/services/sessionService';
 import { quranDataService } from '@/services/quranDataService';
 import { MemorizationPlan, MemorizationStats } from '@/types/memorization';
 import { useRouter } from 'next/navigation';
@@ -18,19 +19,35 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
   const router = useRouter();
   const [stats, setStats] = useState<MemorizationStats | null>(null);
   const [todaySummary, setTodaySummary] = useState<{
-    reviewsTotal: number;
-    reviewsOverdue: number;
-    reviewsCritical: number;
-    newMaterial: number[];
-    hasSession: boolean;
-    nextSessionDate: Date | null;
+    reviewChunk: { chunkId: string; surahNumber: number; pages: number[] } | null;
+    newMaterial: { pageNumber: number } | null;
+    hasActiveSession: boolean;
+  } | null>(null);
+
+  // Current page's ritual progress (for showing dots)
+  const [currentRitual, setCurrentRitual] = useState<{
+    listenCount: number;
+    readCount: number;
+    reciteCount: number;
   } | null>(null);
 
   const loadData = () => {
-    const planStats = memorizationPlanService.getStatistics(plan.id);
-    const summary = reviewQueueService.getTodaySummary(plan.id);
+    const planStats = bilQuranService.getStatistics(plan.id);
+    const summary = sessionService.getTodaySummary(plan.id);
     setStats(planStats);
     setTodaySummary(summary);
+
+    // Load ritual progress for today's new material
+    if (summary.newMaterial) {
+      const progress = bilQuranService.getProgress(plan.id, summary.newMaterial.pageNumber);
+      if (progress && progress.status === 'in-ritual') {
+        setCurrentRitual({
+          listenCount: progress.ritual.listenCount,
+          readCount: progress.ritual.readCount,
+          reciteCount: progress.ritual.reciteCount,
+        });
+      }
+    }
   };
 
   useEffect(() => {
@@ -54,24 +71,11 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
     );
   }
 
-  const hasWork = todaySummary.reviewsTotal > 0 || todaySummary.newMaterial.length > 0;
+  const hasWork = todaySummary.reviewChunk !== null || todaySummary.newMaterial !== null;
 
   // Get current surah info
-  const getCurrentSurahInfo = (): {
-    number: number;
-    name: string;
-    nameArabic: string;
-    englishName: string;
-    englishNameTranslation: string;
-    revelationType: 'Meccan' | 'Medinan';
-    numberOfAyahs: number;
-    totalPages: number;
-    completedPages: number;
-    progress: number;
-  } | null => {
-    const allProgress = memorizationPlanService.getAllProgress(plan.id);
-
-    // Use shared utility function
+  const getCurrentSurahInfo = () => {
+    const allProgress = bilQuranService.getAllProgress(plan.id);
     const nextSurah = getNextSurahToMemorize(plan.id, plan.direction);
     if (!nextSurah) return null;
 
@@ -80,7 +84,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
     const surahPages = quranDataService.getSurahPages(nextSurah);
     const completedPages = allProgress.filter(p =>
-      surahPages.includes(p.pageNumber) && p.status === 'mastered'
+      surahPages.includes(p.pageNumber) && p.status === 'memorized'
     ).length;
 
     return {
@@ -108,35 +112,29 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
               </h1>
               <p className="mt-1" style={{ color: 'var(--dim)', ...uiFont }}>{plan.name}</p>
             </div>
-            {plan.currentStreak > 0 && (
+            {stats.currentStreak > 0 && (
               <div className="text-right">
                 <div className="text-3xl sm:text-4xl" style={{ color: 'var(--gold)' }}>&#9733;</div>
                 <div className="text-sm font-medium" style={{ color: 'var(--dim)', ...uiFont }}>
-                  {plan.currentStreak} day streak
+                  {stats.currentStreak} day streak
                 </div>
               </div>
             )}
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-3 gap-4 mt-6">
             <div className="text-center">
               <div className="text-2xl font-bold" style={{ color: '#6B8E4E' }}>
-                {stats.masteredPages}
+                {stats.memorizedPages}
               </div>
-              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Mastered</div>
+              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Memorized</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold" style={{ color: 'var(--gold)' }}>
-                {stats.reviewPages}
+                {stats.inRitualPages}
               </div>
-              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>In Review</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: '#C49A3C' }}>
-                {stats.learningPages}
-              </div>
-              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Learning</div>
+              <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>In Ritual</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold" style={{ color: 'var(--dim)' }}>
@@ -155,7 +153,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
               />
             </div>
             <p className="text-xs mt-2 text-center" style={{ color: 'var(--dim)', ...uiFont }}>
-              {stats.masteredPages} of {stats.totalPages} pages mastered
+              {stats.memorizedPages} of {stats.totalPages} pages memorized
             </p>
           </div>
         </div>
@@ -169,7 +167,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="text-sm font-medium" style={{ color: 'var(--gold)', ...uiFont }}>
-                  Current Surah {plan.direction === 'backward' && '(Memorizing from beginning →)'}
+                  Current Surah
                 </div>
                 <h2 className="text-2xl font-bold mt-1" style={{ color: 'var(--ink)', ...uiFont }}>
                   {currentSurahInfo.number}. {currentSurahInfo.englishName}
@@ -182,9 +180,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                 <div className="text-3xl font-bold" style={{ color: 'var(--gold)' }}>
                   {currentSurahInfo.progress}%
                 </div>
-                <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>
-                  Complete
-                </div>
+                <div className="text-xs" style={{ color: 'var(--dim)', ...uiFont }}>Complete</div>
               </div>
             </div>
 
@@ -209,12 +205,6 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
               </div>
             </div>
 
-            {plan.direction === 'backward' && (
-              <div className="mt-3 text-xs text-center rounded-lg py-2" style={{ background: 'var(--gold-glow)', color: 'var(--ink)', ...uiFont }}>
-                Each surah is memorized from its beginning, even though your plan moves backward through the Quran
-              </div>
-            )}
-
             <div className="mt-4">
               <div className="w-full rounded-full h-2" style={{ background: 'var(--divider)' }}>
                 <div
@@ -237,54 +227,72 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
           {hasWork ? (
             <div className="space-y-4">
-              {/* Reviews */}
-              {todaySummary.reviewsTotal > 0 && (
-                <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <div className="font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
-                          Reviews Due: {todaySummary.reviewsTotal} page{todaySummary.reviewsTotal !== 1 ? 's' : ''}
-                        </div>
-                        {todaySummary.reviewsOverdue > 0 && (
-                          <div className="text-sm" style={{ color: '#A0522D', ...uiFont }}>
-                            {todaySummary.reviewsOverdue} overdue
-                          </div>
-                        )}
-                        {todaySummary.reviewsCritical > 0 && (
-                          <div className="text-sm" style={{ color: '#C49A3C', ...uiFont }}>
-                            {todaySummary.reviewsCritical} critical
-                          </div>
-                        )}
-                      </div>
+              {/* Review Chunk */}
+              {todaySummary.reviewChunk && (() => {
+                const surahInfo = quranDataService.getSurahInfo(todaySummary.reviewChunk.surahNumber);
+                return (
+                  <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
+                    <div className="font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
+                      Review: {surahInfo?.englishName || `Surah ${todaySummary.reviewChunk.surahNumber}`}
+                    </div>
+                    <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
+                      {todaySummary.reviewChunk.pages.length} page{todaySummary.reviewChunk.pages.length !== 1 ? 's' : ''} — Page{todaySummary.reviewChunk.pages.length > 1 ? 's' : ''} {todaySummary.reviewChunk.pages.join(', ')}
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* New Material */}
-              {todaySummary.newMaterial.length > 0 && (() => {
-                // Use the same logic as getCurrentSurahInfo to find the correct next surah
+              {todaySummary.newMaterial && (() => {
                 const surahNum = currentSurahInfo?.number || null;
                 const surahInfo = surahNum ? quranDataService.getSurahInfo(surahNum) : null;
 
                 return (
                   <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <div className="font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
-                          New Material Ready
-                        </div>
-                        {surahInfo && (
-                          <div className="text-sm" style={{ color: 'var(--gold)', ...uiFont }}>
-                            {surahInfo.englishName} ({surahInfo.nameArabic})
+                    <div className="font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
+                      New: Page {todaySummary.newMaterial.pageNumber}
+                    </div>
+                    {surahInfo && (
+                      <div className="text-sm" style={{ color: 'var(--gold)', ...uiFont }}>
+                        {surahInfo.englishName} ({surahInfo.nameArabic})
+                      </div>
+                    )}
+
+                    {/* Ritual progress dots */}
+                    {currentRitual && (
+                      <div className="mt-3 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] w-12" style={{ color: 'var(--dim)', ...uiFont }}>Listen</span>
+                          <div className="flex gap-1">
+                            {Array.from({ length: 2 }).map((_, i) => (
+                              <div key={i} className="w-2.5 h-2.5 rounded-full" style={{
+                                background: i < currentRitual.listenCount ? 'var(--gold)' : 'var(--divider)',
+                              }} />
+                            ))}
                           </div>
-                        )}
-                        <div className="text-xs mt-1" style={{ color: 'var(--dim)', ...uiFont }}>
-                          Page {todaySummary.newMaterial.join(', ')}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] w-12" style={{ color: 'var(--dim)', ...uiFont }}>Read</span>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 15 }).map((_, i) => (
+                              <div key={i} className="w-2 h-2 rounded-full" style={{
+                                background: i < currentRitual.readCount ? 'var(--gold)' : 'var(--divider)',
+                              }} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] w-12" style={{ color: 'var(--dim)', ...uiFont }}>Recite</span>
+                          <div className="flex gap-1">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                              <div key={i} className="w-2.5 h-2.5 rounded-full" style={{
+                                background: i < currentRitual.reciteCount ? '#6B8E4E' : 'var(--divider)',
+                              }} />
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })()}
@@ -295,65 +303,8 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                 className="w-full py-4 text-white font-semibold rounded-lg transition-all"
                 style={{ background: 'var(--gold)', ...uiFont }}
               >
-                {todaySummary.hasSession ? 'Continue Session →' : 'Start Session →'}
+                {todaySummary.hasActiveSession ? 'Continue Session →' : 'Start Session →'}
               </button>
-
-              {todaySummary.hasSession && (
-                <div className="text-center space-y-2">
-                  <p className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
-                    You have an active session from earlier today
-                  </p>
-                  <div className="flex gap-2 justify-center">
-                    <button
-                      onClick={() => {
-                        if (confirm('Mark current session as complete? This will count it as finished.')) {
-                          const session = memorizationPlanService.getTodaySession(plan.id);
-                          if (session) {
-                            memorizationPlanService.completeSession(plan.id, session.id, 0);
-                            loadData();
-                          }
-                        }
-                      }}
-                      className="text-sm px-3 py-1 rounded"
-                      style={{ background: 'var(--gold-glow)', color: '#6B8E4E', ...uiFont }}
-                    >
-                      Mark Done
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm('Start a fresh session? This will mark your current session as skipped and create a new one with the latest review queue.')) {
-                          // Mark current session as skipped
-                          const session = memorizationPlanService.getTodaySession(plan.id);
-                          if (session) {
-                            memorizationPlanService.updateSession(plan.id, session.id, {
-                              skipped: true,
-                              completed: true,
-                              completedAt: new Date()
-                            });
-                          }
-
-                          // Force create new session
-                          const reviewQueue = reviewQueueService.generateTodayQueue(plan.id);
-                          const newMaterial = reviewQueueService.getNextNewMaterial(plan.id);
-                          memorizationPlanService.createSession(
-                            plan.id,
-                            reviewQueue.map(r => r.pageNumber),
-                            newMaterial
-                          );
-
-                          // Reload and start new session
-                          loadData();
-                          setTimeout(() => handleStartSession(), 100);
-                        }
-                      }}
-                      className="text-sm px-3 py-1 rounded"
-                      style={{ background: 'var(--gold-glow)', color: 'var(--gold)', ...uiFont }}
-                    >
-                      Start Fresh Session
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <div className="text-center py-8">
@@ -362,25 +313,8 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
                 All Caught Up!
               </h3>
               <p style={{ color: 'var(--dim)', ...uiFont }}>
-                No reviews due today. Great work on staying consistent!
+                No new material or reviews for today. Come back tomorrow!
               </p>
-              {todaySummary.nextSessionDate && (
-                <div className="mt-4 p-3 rounded-lg inline-block" style={{ background: 'var(--gold-glow)' }}>
-                  <div className="text-sm" style={{ color: 'var(--gold)', ...uiFont }}>
-                    Next Session Due
-                  </div>
-                  <div className="text-lg font-semibold mt-1" style={{ color: 'var(--ink)', ...uiFont }}>
-                    {todaySummary.nextSessionDate.toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </div>
-                  <div className="text-xs mt-1" style={{ color: 'var(--dim)', ...uiFont }}>
-                    {Math.ceil((todaySummary.nextSessionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} day{Math.ceil((todaySummary.nextSessionDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''} from now
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -406,10 +340,10 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
               <div className="text-sm mb-1" style={{ color: 'var(--dim)', ...uiFont }}>
-                Retention Rate
+                Review Cycle
               </div>
               <div className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
-                {Math.round(stats.averageRetentionRate)}%
+                {stats.rotationCycleLength} days
               </div>
             </div>
 
@@ -433,10 +367,10 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
             <div className="rounded-lg p-4" style={{ background: 'var(--gold-glow)' }}>
               <div className="text-sm mb-1" style={{ color: 'var(--dim)', ...uiFont }}>
-                Avg Session
+                Current Streak
               </div>
-              <div className="text-2xl font-bold" style={{ color: 'var(--ink)' }}>
-                {Math.round(stats.averageSessionDuration)} min
+              <div className="text-2xl font-bold" style={{ color: 'var(--gold)' }}>
+                {stats.currentStreak} days
               </div>
             </div>
           </div>
@@ -468,6 +402,13 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
+              <span style={{ color: 'var(--dim)', ...uiFont }}>Method:</span>
+              <span className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
+                بالقرآن نحيا
+              </span>
+            </div>
+
+            <div className="flex justify-between">
               <span style={{ color: 'var(--dim)', ...uiFont }}>Direction:</span>
               <span className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
                 {plan.direction === 'forward' ? 'Beginning → End' : 'End → Beginning'}
@@ -477,10 +418,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
             <div className="flex justify-between">
               <span style={{ color: 'var(--dim)', ...uiFont }}>Daily Goal:</span>
               <span className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
-                {plan.dailyGoal.type === 'full-page' && 'Full Page'}
-                {plan.dailyGoal.type === 'half-page' && 'Half Page'}
-                {plan.dailyGoal.type === 'quarter-page' && 'Quarter Page'}
-                {plan.dailyGoal.type === 'custom-lines' && `${plan.dailyGoal.linesPerDay} Lines`}
+                Half Page
               </span>
             </div>
 
@@ -494,7 +432,7 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
             <div className="flex justify-between">
               <span style={{ color: 'var(--dim)', ...uiFont }}>Started:</span>
               <span className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
-                {plan.startDate.toLocaleDateString()}
+                {new Date(plan.startDate).toLocaleDateString()}
               </span>
             </div>
           </div>
@@ -528,8 +466,9 @@ export function MemorizationDashboard({ plan }: MemorizationDashboardProps) {
 
             <button
               onClick={() => {
-                if (confirm('Reset ALL progress? This cannot be undone!\n\nThis will:\n- Delete all your review history\n- Reset all page progress to new\n- Clear all statistics\n- Keep your plan settings')) {
+                if (confirm('Reset ALL progress? This cannot be undone!\n\nThis will:\n- Delete all your review history\n- Reset all page progress\n- Clear review rotation\n- Keep your plan settings')) {
                   memorizationPlanService.resetProgress(plan.id);
+                  bilQuranService.deleteRotation(plan.id);
                   window.location.reload();
                 }
               }}

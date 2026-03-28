@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
+import { bilQuranService } from '@/services/bilQuranService';
 import { quranDataService } from '@/services/quranDataService';
 import { MemorizationPlan } from '@/types/memorization';
 
@@ -16,15 +17,13 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
   const [step, setStep] = useState(1);
   const [planData, setPlanData] = useState({
     name: 'My Quran Memorization Plan',
-    direction: 'forward' as 'forward' | 'backward',
-    dailyGoalType: 'half-page' as 'full-page' | 'half-page' | 'quarter-page' | 'custom-lines',
-    customLines: 7,
+    direction: 'backward' as 'forward' | 'backward',
     startPage: 1,
     endPage: 604,
     alreadyMemorized: [] as number[],
     alreadyMemorizedSurahs: [] as number[],
     hasExistingProgress: false,
-    progressType: 'pages' as 'pages' | 'surahs',
+    progressType: 'surahs' as 'pages' | 'surahs',
     studyTime: 'flexible' as 'morning' | 'afternoon' | 'evening' | 'night' | 'flexible',
     reminderEnabled: false,
   });
@@ -33,38 +32,35 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
   const handleBack = () => setStep(step - 1);
 
   const handleComplete = () => {
-    // Create the plan
     const plan = memorizationPlanService.createPlan({
       name: planData.name,
       active: true,
-      dailyGoal: {
-        type: planData.dailyGoalType,
-        linesPerDay: planData.dailyGoalType === 'custom-lines' ? planData.customLines : undefined,
-      },
+      dailyGoal: { type: 'half-page' },
       direction: planData.direction,
       startPage: planData.startPage,
       endPage: planData.endPage,
       currentPage: planData.direction === 'forward' ? planData.startPage : planData.endPage,
       studyTime: planData.studyTime,
       reminderEnabled: planData.reminderEnabled,
-      startDate: new Date(),
+      startDate: new Date().toISOString(),
     });
 
-    // Mark already memorized pages if any
+    // Mark already memorized pages
     let pagesToMark = [...planData.alreadyMemorized];
 
-    // If user selected surahs, convert them to pages
     if (planData.progressType === 'surahs' && planData.alreadyMemorizedSurahs.length > 0) {
       const surahPages = quranDataService.getSurahsPages(planData.alreadyMemorizedSurahs);
       pagesToMark = [...new Set([...pagesToMark, ...surahPages])];
     }
 
     if (pagesToMark.length > 0) {
-      memorizationPlanService.markPagesAsMastered(plan.id, pagesToMark);
+      bilQuranService.markPagesAsMemorized(plan.id, pagesToMark);
     }
 
     onComplete(plan);
   };
+
+  const totalSteps = 3;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
@@ -79,25 +75,20 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
               Setup Your Memorization Plan
             </h2>
             {onCancel && (
-              <button
-                onClick={onCancel}
-                style={{ color: 'var(--dim)' }}
-              >
-                ✕
-              </button>
+              <button onClick={onCancel} style={{ color: 'var(--dim)' }}>✕</button>
             )}
           </div>
           <div className="flex items-center gap-2 mt-4">
-            {[1, 2, 3, 4].map((s) => (
+            {Array.from({ length: totalSteps }).map((_, i) => (
               <div
-                key={s}
+                key={i}
                 className="flex-1 h-2 rounded-full"
-                style={{ background: s <= step ? 'var(--gold)' : 'var(--divider)' }}
+                style={{ background: i + 1 <= step ? 'var(--gold)' : 'var(--divider)' }}
               />
             ))}
           </div>
           <p className="text-sm mt-2" style={{ color: 'var(--dim)', ...uiFont }}>
-            Step {step} of 4
+            Step {step} of {totalSteps}
           </p>
         </div>
 
@@ -108,9 +99,13 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
               <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Choose Your Direction
               </h3>
-              <p style={{ color: 'var(--dim)', ...uiFont }}>
-                Which direction would you like to memorize?
-              </p>
+
+              <div className="p-4 rounded-lg" style={{ background: 'var(--gold-glow)' }}>
+                <p className="text-sm" style={{ color: 'var(--ink)', ...uiFont }}>
+                  This plan uses the <strong>بالقرآن نحيا</strong> method: half a page per day with a structured
+                  ritual (Listen 2x, Read 15x, Recite 3x error-free) and rotating review.
+                </p>
+              </div>
 
               <div className="space-y-4">
                 <label
@@ -134,7 +129,7 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                       From Beginning (Al-Fatiha → An-Nas)
                     </div>
                     <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
-                      Traditional approach, starting with Surah Al-Fatiha
+                      ~20 months at half-page/day
                     </div>
                   </div>
                 </label>
@@ -160,7 +155,7 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                       From End (An-Nas → Al-Fatiha) — Recommended
                     </div>
                     <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
-                      Easier short surahs first (Juz 30), builds confidence
+                      ~27 months, easier short surahs first (Juz 30)
                     </div>
                   </div>
                 </label>
@@ -169,52 +164,6 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
           )}
 
           {step === 2 && (
-            <div className="space-y-6">
-              <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
-                Set Your Daily Goal
-              </h3>
-              <p style={{ color: 'var(--dim)', ...uiFont }}>
-                How much do you want to memorize each day?
-              </p>
-
-              <div className="space-y-4">
-                {[
-                  { value: 'quarter-page', label: 'Quarter Page (~3-4 lines)', desc: 'Gradual and steady, ~4-5 years to complete' },
-                  { value: 'half-page', label: 'Half Page (~7-8 lines) — Recommended', desc: 'Balanced pace, ~2-3 years to complete' },
-                  { value: 'full-page', label: 'Full Page (~15 lines)', desc: 'Ambitious, ~1.5-2 years to complete' },
-                ].map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex items-center p-4 rounded-lg cursor-pointer transition-colors"
-                    style={{
-                      border: planData.dailyGoalType === option.value ? '2px solid var(--gold)' : '2px solid var(--divider)',
-                      background: planData.dailyGoalType === option.value ? 'var(--gold-glow)' : 'transparent',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="goal"
-                      value={option.value}
-                      checked={planData.dailyGoalType === option.value}
-                      onChange={(e) => setPlanData({ ...planData, dailyGoalType: e.target.value as 'quarter-page' | 'half-page' | 'full-page' })}
-                      className="w-5 h-5"
-                      style={{ accentColor: 'var(--gold)' }}
-                    />
-                    <div className="ml-4 flex-1">
-                      <div className="font-medium" style={{ color: 'var(--ink)', ...uiFont }}>
-                        {option.label}
-                      </div>
-                      <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
-                        {option.desc}
-                      </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
             <div className="space-y-6">
               <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Current Progress
@@ -244,7 +193,7 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                       Starting Fresh
                     </div>
                     <div className="text-sm" style={{ color: 'var(--dim)', ...uiFont }}>
-                      I haven&apos;t memorized anything yet, or I want to review everything
+                      I haven&apos;t memorized anything yet
                     </div>
                   </div>
                 </label>
@@ -269,12 +218,11 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                       Skip Already Memorized
                     </div>
                     <div className="text-sm mb-3" style={{ color: 'var(--dim)', ...uiFont }}>
-                      Mark what you&apos;ve already fully mastered
+                      These pages will enter your review rotation immediately
                     </div>
 
                     {planData.hasExistingProgress && (
                       <div className="mt-4 space-y-3">
-                        {/* Toggle between Pages and Surahs */}
                         <div className="flex gap-2 rounded-lg p-1" style={{ background: 'var(--surface)' }}>
                           <button
                             type="button"
@@ -304,7 +252,6 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                           </button>
                         </div>
 
-                        {/* Surah Selection */}
                         {planData.progressType === 'surahs' && (
                           <div className="p-3 rounded" style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}>
                             <div className="text-sm font-medium mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
@@ -341,7 +288,6 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                           </div>
                         )}
 
-                        {/* Page Selection */}
                         {planData.progressType === 'pages' && (
                           <div className="p-3 rounded" style={{ background: 'var(--surface)', border: '1px solid var(--divider)' }}>
                             <div className="text-sm font-medium mb-2" style={{ color: 'var(--ink)', ...uiFont }}>
@@ -384,7 +330,7 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <div className="space-y-6">
               <h3 className="text-xl font-semibold" style={{ color: 'var(--ink)', ...uiFont }}>
                 Study Schedule
@@ -405,7 +351,7 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
                     style={{ background: 'var(--surface)', border: '1px solid var(--divider)', color: 'var(--ink)', ...uiFont }}
                   >
                     <option value="flexible">Flexible</option>
-                    <option value="morning">Morning</option>
+                    <option value="morning">Morning (After Fajr)</option>
                     <option value="afternoon">Afternoon</option>
                     <option value="evening">Evening</option>
                     <option value="night">Night</option>
@@ -414,7 +360,8 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
 
                 <div className="p-4 rounded-lg" style={{ background: 'var(--gold-glow)' }}>
                   <p className="text-sm" style={{ color: 'var(--ink)', ...uiFont }}>
-                    Tip: Consistency is more important than the time of day. Choose when you&apos;re most alert and can study without interruptions.
+                    The method works best with <strong>consistency</strong> — same time each day.
+                    After Fajr is traditionally recommended for Quran memorization.
                   </p>
                 </div>
               </div>
@@ -436,7 +383,7 @@ export function SetupWizard({ onComplete, onCancel }: SetupWizardProps) {
             <div />
           )}
 
-          {step < 4 ? (
+          {step < totalSteps ? (
             <button
               onClick={handleNext}
               className="px-6 py-2 text-white rounded transition-colors"
