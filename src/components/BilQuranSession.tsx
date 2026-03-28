@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { QuranPageViewer } from './QuranPageViewer';
 import { VoiceRecorder } from './VoiceRecorder';
 import { AudioPlayer } from './AudioPlayer';
+import { RecitationTracker } from './RecitationTracker';
 import { bilQuranService } from '@/services/bilQuranService';
 import { sessionService } from '@/services/sessionService';
 import { memorizationPlanService } from '@/services/memorizationPlanService';
@@ -12,6 +13,7 @@ import { audioService } from '@/services/audioService';
 import { ayahTimingService } from '@/services/ayahTimingService';
 import { StudySession, HifzRitual, ReviewChunk } from '@/types/memorization';
 import { Recording } from '@/types/quran';
+import type { WordRevealState, RecitationResult } from '@/types/recitation';
 import { useRouter } from 'next/navigation';
 
 const uiFont = { fontFamily: "var(--font-garamond), Georgia, serif" };
@@ -36,6 +38,14 @@ export function BilQuranSession({ planId }: BilQuranSessionProps) {
   const [showRecorder, setShowRecorder] = useState(false);
   const [textHidden, setTextHidden] = useState(false);
   const [listenAutoPlaying, setListenAutoPlaying] = useState(false);
+  const [trackingEnabled, setTrackingEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('recitation-tracking-enabled') !== 'false';
+    }
+    return true;
+  });
+  const [wordRevealState, setWordRevealState] = useState<WordRevealState | undefined>(undefined);
+  const [showTracker, setShowTracker] = useState(false);
 
   const loadSession = useCallback(() => {
     const todaySession = sessionService.createTodaySession(planId);
@@ -201,6 +211,36 @@ export function BilQuranSession({ planId }: BilQuranSessionProps) {
   const handleRecordingComplete = (recording: Recording) => {
     // Recording saved via VoiceRecorder's internal logic
     void recording;
+  };
+
+  const handleTrackingComplete = useCallback((result: RecitationResult) => {
+    setShowTracker(false);
+    setWordRevealState(undefined);
+    // Auto-judge based on accuracy
+    const errorFree = result.accuracy >= 95;
+    handleReciteResult(errorFree);
+  }, [handleReciteResult]);
+
+  const handleTrackingCancel = useCallback(() => {
+    setShowTracker(false);
+    setWordRevealState(undefined);
+  }, []);
+
+  const handleReviewTrackingComplete = useCallback((result: RecitationResult) => {
+    setShowTracker(false);
+    setWordRevealState(undefined);
+    void result;
+  }, []);
+
+  const handleReviewTrackingCancel = useCallback(() => {
+    setShowTracker(false);
+    setWordRevealState(undefined);
+  }, []);
+
+  const toggleTracking = () => {
+    const next = !trackingEnabled;
+    setTrackingEnabled(next);
+    localStorage.setItem('recitation-tracking-enabled', String(next));
   };
 
   const handleExit = () => {
@@ -394,6 +434,7 @@ export function BilQuranSession({ planId }: BilQuranSessionProps) {
             hiddenAyahs={getHiddenAyahs()}
             onPageChange={(newPage) => setViewPage(newPage)}
             hideNavigation={false}
+            wordRevealState={showTracker ? wordRevealState : undefined}
           />
         )}
       </div>
@@ -427,29 +468,63 @@ export function BilQuranSession({ planId }: BilQuranSessionProps) {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handleReviewComplete}
-                  className="py-3 text-white rounded-lg font-medium"
-                  style={{ background: '#6B8E4E', ...uiFont }}
-                >
-                  Completed ✓
-                </button>
-                <button
-                  onClick={handleReviewComplete}
-                  className="py-3 rounded-lg font-medium"
-                  style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
-                >
-                  Need more practice
-                </button>
+
+              {/* Review tracking */}
+              {trackingEnabled && showTracker && viewPage && surahNum && (
+                <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--surface)' }}>
+                  <RecitationTracker
+                    pageNumber={viewPage}
+                    surahNumber={surahNum}
+                    onRevealStateChange={setWordRevealState}
+                    onComplete={handleReviewTrackingComplete}
+                    onCancel={handleReviewTrackingCancel}
+                  />
+                </div>
+              )}
+
+              {!showTracker && (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleReviewComplete}
+                    className="py-3 text-white rounded-lg font-medium"
+                    style={{ background: '#6B8E4E', ...uiFont }}
+                  >
+                    Completed ✓
+                  </button>
+                  <button
+                    onClick={handleReviewComplete}
+                    className="py-3 rounded-lg font-medium"
+                    style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
+                  >
+                    Need more practice
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                {!showTracker && (
+                  <button
+                    onClick={() => setTextHidden(!textHidden)}
+                    className="flex-1 py-2 rounded text-sm"
+                    style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
+                  >
+                    {textHidden ? 'Peek at text' : 'Hide text again'}
+                  </button>
+                )}
+                {trackingEnabled && (
+                  <button
+                    onClick={() => setShowTracker(!showTracker)}
+                    className="flex-1 py-2 rounded text-sm"
+                    style={{
+                      background: showTracker ? 'var(--gold)' : 'var(--surface)',
+                      color: showTracker ? 'var(--parchment)' : 'var(--ink)',
+                      ...uiFont,
+                    }}
+                  >
+                    {showTracker ? 'Manual mode' : 'Live tracking'}
+                  </button>
+                )}
               </div>
-              <button
-                onClick={() => setTextHidden(!textHidden)}
-                className="w-full py-2 rounded text-sm"
-                style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
-              >
-                {textHidden ? 'Peek at text' : 'Hide text again'}
-              </button>
             </div>
           )}
 
@@ -542,54 +617,97 @@ export function BilQuranSession({ planId }: BilQuranSessionProps) {
                 Recite from memory — text is hidden ({ritual.reciteCount}/3)
               </p>
 
-              {showRecorder && (
+              {/* Recitation tracker (when enabled and active) */}
+              {trackingEnabled && showTracker && sessionPage && surahNum && (
                 <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--surface)' }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium" style={{ color: 'var(--ink)', ...uiFont }}>Record Your Recitation</span>
-                    <button onClick={() => setShowRecorder(false)} style={{ color: 'var(--dim)' }}>✕</button>
-                  </div>
-                  {sessionPage && (
-                    <VoiceRecorder
-                      pageNumber={sessionPage}
-                      onRecordingComplete={handleRecordingComplete}
-                    />
-                  )}
+                  <RecitationTracker
+                    pageNumber={sessionPage}
+                    surahNumber={surahNum}
+                    onRevealStateChange={setWordRevealState}
+                    onComplete={handleTrackingComplete}
+                    onCancel={handleTrackingCancel}
+                  />
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => handleReciteResult(true)}
-                  className="py-4 text-white rounded-lg font-medium"
-                  style={{ background: '#6B8E4E', ...uiFont }}
-                >
-                  Error-free ✓
-                </button>
-                <button
-                  onClick={() => handleReciteResult(false)}
-                  className="py-4 rounded-lg font-medium"
-                  style={{ background: '#A0522D', color: '#fff', ...uiFont }}
-                >
-                  Made mistake ✗
-                </button>
-              </div>
+              {/* Manual controls (when tracker is not active) */}
+              {!showTracker && (
+                <>
+                  {showRecorder && (
+                    <div className="mb-3 p-3 rounded-lg" style={{ background: 'var(--surface)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium" style={{ color: 'var(--ink)', ...uiFont }}>Record Your Recitation</span>
+                        <button onClick={() => setShowRecorder(false)} style={{ color: 'var(--dim)' }}>✕</button>
+                      </div>
+                      {sessionPage && (
+                        <VoiceRecorder
+                          pageNumber={sessionPage}
+                          onRecordingComplete={handleRecordingComplete}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleReciteResult(true)}
+                      className="py-4 text-white rounded-lg font-medium"
+                      style={{ background: '#6B8E4E', ...uiFont }}
+                    >
+                      Error-free ✓
+                    </button>
+                    <button
+                      onClick={() => handleReciteResult(false)}
+                      className="py-4 rounded-lg font-medium"
+                      style={{ background: '#A0522D', color: '#fff', ...uiFont }}
+                    >
+                      Made mistake ✗
+                    </button>
+                  </div>
+                </>
+              )}
 
               <div className="flex gap-3">
-                <button
-                  onClick={() => setTextHidden(!textHidden)}
-                  className="flex-1 py-2 rounded text-sm"
-                  style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
-                >
-                  {textHidden ? 'Peek at text' : 'Hide text again'}
-                </button>
-                <button
-                  onClick={() => setShowRecorder(!showRecorder)}
-                  className="flex-1 py-2 rounded text-sm"
-                  style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
-                >
-                  {showRecorder ? 'Close recorder' : 'Record'}
-                </button>
+                {!showTracker && (
+                  <button
+                    onClick={() => setTextHidden(!textHidden)}
+                    className="flex-1 py-2 rounded text-sm"
+                    style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
+                  >
+                    {textHidden ? 'Peek at text' : 'Hide text again'}
+                  </button>
+                )}
+                {trackingEnabled ? (
+                  <button
+                    onClick={() => setShowTracker(!showTracker)}
+                    className="flex-1 py-2 rounded text-sm"
+                    style={{
+                      background: showTracker ? 'var(--gold)' : 'var(--surface)',
+                      color: showTracker ? 'var(--parchment)' : 'var(--ink)',
+                      ...uiFont,
+                    }}
+                  >
+                    {showTracker ? 'Manual mode' : 'Live tracking'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowRecorder(!showRecorder)}
+                    className="flex-1 py-2 rounded text-sm"
+                    style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
+                  >
+                    {showRecorder ? 'Close recorder' : 'Record'}
+                  </button>
+                )}
               </div>
+
+              {/* Tracking toggle */}
+              <button
+                onClick={toggleTracking}
+                className="w-full py-1.5 text-xs rounded"
+                style={{ color: 'var(--dim)', ...uiFont }}
+              >
+                {trackingEnabled ? 'Disable live tracking' : 'Enable live tracking'}
+              </button>
             </div>
           )}
 

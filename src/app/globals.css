@@ -124,6 +124,104 @@ body {
   border-radius: 3px;
 }
 
+/* ── Recitation word tracking ────────────────────────────── */
+.recitation-word {
+  display: inline;
+  /* NO padding, margin, or border-radius — Arabic fonts handle spacing via whitespace */
+  transition: color 0.3s ease;
+}
+
+.recitation-word.word-hidden {
+  color: transparent;
+  user-select: none;
+  /* NO individual background — parent handles it */
+}
+
+/* Continuous hidden block on the parent when ANY words are hidden */
+.ayah-text:has(.recitation-word.word-hidden) {
+  background-color: var(--divider);
+  border-radius: 3px;
+}
+
+.recitation-word.word-revealed {
+  color: var(--ink);
+  background-color: transparent; /* punch through parent bg */
+  text-shadow: 0 0 8px var(--gold-glow);
+  animation: word-reveal 0.4s ease-out;
+}
+
+.recitation-word.word-current {
+  color: transparent;
+  user-select: none;
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+  text-underline-offset: 4px;
+  animation: word-pulse 1.2s ease-in-out infinite;
+}
+
+.recitation-word.word-error {
+  color: var(--ink);
+  background-color: transparent;
+  text-decoration: underline wavy;
+  text-decoration-color: #A0522D;
+  text-underline-offset: 4px;
+}
+
+@keyframes word-reveal {
+  from {
+    color: var(--gold);
+    text-shadow: 0 0 16px var(--gold);
+  }
+  to {
+    color: var(--ink);
+    text-shadow: 0 0 8px var(--gold-glow);
+  }
+}
+
+@keyframes word-pulse {
+  0%, 100% {
+    text-decoration-color: var(--gold);
+    opacity: 1;
+  }
+  50% {
+    text-decoration-color: transparent;
+    opacity: 0.7;
+  }
+}
+
+/* ── Follow-along word tracking ──────────────────────────── */
+.recitation-word.word-ahead {
+  /* visible, normal color — no special styling */
+  color: var(--ink);
+}
+
+.recitation-word.word-followed {
+  color: var(--ink);
+  text-shadow: 0 0 6px var(--gold-glow);
+}
+
+.recitation-word.word-following {
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+  text-underline-offset: 4px;
+  animation: word-pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Detection phase mic pulse ───────────────────────────── */
+@keyframes mic-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(181, 134, 44, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 16px rgba(181, 134, 44, 0);
+  }
+}
+
+.mic-pulse {
+  animation: mic-pulse 2s ease-in-out infinite;
+}
+
 /* ── Range input (audio scrubber) ─────────────────────── */
 input[type='range'] {
   accent-color: var(--gold);
