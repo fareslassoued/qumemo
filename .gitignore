@@ -64,3 +64,6 @@ tools/aligner/output/*.bak
 
 # Misc screenshots
 image.png
+
+# ASR eval reports (generated)
+tools/aligner/reports/

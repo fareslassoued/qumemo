@@ -5,7 +5,7 @@
  * Auto-selects best available backend. Emits events for UI updates.
  */
 
-import { buildPageWordIndex, matchChunk } from './recitationMatcherService';
+import { buildPageWordIndex, matchChunk, matchWordQuick } from './recitationMatcherService';
 import { normalizeArabic } from './phonemeService';
 import { LocalWhisperBackend, WebSpeechBackend, HFInferenceBackend } from './asrBackends';
 import type {
@@ -18,6 +18,9 @@ import type {
 } from '@/types/recitation';
 
 type EventCallback = (event: RecitationEvent) => void;
+
+/** How many expected words to search ahead during interim matching */
+const INTERIM_SEARCH_WINDOW = 4;
 
 // ─── Recitation Tracker Service ─────────────────────────
 
@@ -153,21 +156,26 @@ class RecitationTrackerService {
         console.log(`[Tracker] No match found for final text`);
       }
     } else {
-      // On interim/cumulative result: strict sequential matching
-      // Only match against the next 2 expected words — never skip ahead.
-      // This prevents hallucinated ASR words from revealing unrecited text.
+      // On interim/cumulative result: sequential matching with narrow window.
       const asrWords = text.split(/\s+/).filter(Boolean);
 
-      // Only process words we haven't seen in this cumulative sequence
+      // Detect text regression: the sliding window dropped old audio,
+      // shrinking the text. Only re-process the TAIL of the ASR output
+      // (the most recent recitation) to avoid jumping the pointer ahead.
+      if (asrWords.length < this.lastInterimWordCount && asrWords.length > 0) {
+        console.log(`[Tracker] Text regression (${this.lastInterimWordCount}→${asrWords.length}), processing tail only`);
+        this.lastInterimWordCount = Math.max(0, asrWords.length - 3);
+      }
+
       if (asrWords.length > this.lastInterimWordCount) {
+        // Normal path: only process new words
         const newWords = asrWords.slice(this.lastInterimWordCount);
         this.lastInterimWordCount = asrWords.length;
 
         for (const word of newWords) {
           if (this.pointer >= this.expectedWords.length) break;
 
-          // Only check the next 2 expected words (no big jumps)
-          const windowEnd = Math.min(this.expectedWords.length, this.pointer + 2);
+          const windowEnd = Math.min(this.expectedWords.length, this.pointer + INTERIM_SEARCH_WINDOW);
           let bestScore = 0;
           let bestIdx = -1;
 
@@ -181,7 +189,6 @@ class RecitationTrackerService {
 
           if (bestIdx >= 0 && bestScore >= 0.45) {
             console.log(`[Tracker] Interim match: "${word}" → expected[${bestIdx}]="${this.expectedWords[bestIdx].normalized}" (score=${bestScore.toFixed(2)})`);
-            // Reveal only up to the matched word (at most 2 words ahead)
             this.revealUpTo(bestIdx + 1, []);
           }
         }

@@ -10,7 +10,7 @@
  */
 
 import { LocalWhisperBackend } from './asrBackends';
-import { buildPageWordIndex } from './recitationMatcherService';
+import { buildPageWordIndex, matchChunk } from './recitationMatcherService';
 import { normalizeArabic } from './phonemeService';
 import { quranSearchIndex, type PositionCandidate, type PositionResult } from './quranSearchIndex';
 import type { ASRBackend, ExpectedWord } from '@/types/recitation';
@@ -22,6 +22,8 @@ type EventCallback = (event: FollowAlongEvent) => void;
 const NO_MATCH_THRESHOLD = 15;
 /** Minimum similarity for word matching in following phase */
 const FOLLOW_MIN_SIMILARITY = 0.45;
+/** How many expected words to search ahead during interim matching */
+const INTERIM_SEARCH_WINDOW = 4;
 
 // ─── Candidate accumulation constants ────────────────────
 /** Don't lock until we have this many post-preamble ASR words */
@@ -287,8 +289,28 @@ class FollowAlongService {
 
     const asrWords = text.split(/\s+/).filter(Boolean);
 
-    // Only process new words (cumulative ASR text grows)
+    if (isFinal) {
+      // Final result: run matchChunk with wide 8-word window for recovery
+      console.log(`[FollowAlong] Final match: "${text.slice(0, 80)}..." | pointer=${this.pointer}`);
+      const result = matchChunk(text, this.expectedWords, this.pointer);
+      if (result) {
+        for (let i = this.pointer; i < result.matchedUpTo; i++) {
+          this.matchedWords.add(this.expectedWords[i].wordRef);
+        }
+        this.pointer = result.matchedUpTo;
+      }
+      this.processedAsrWordCount = 0; // Reset for next speech segment
+    } else if (asrWords.length < this.processedAsrWordCount && asrWords.length > 0) {
+      // Text regression: sliding window dropped old audio, text shrank.
+      // Only re-process the TAIL (last 3 words) — the most recent recitation.
+      // Resetting to 0 would re-process ALL words through the 4-word interim
+      // window, causing the pointer to jump way ahead of actual position.
+      console.log(`[FollowAlong] Text regression (${this.processedAsrWordCount}→${asrWords.length}), processing tail only`);
+      this.processedAsrWordCount = Math.max(0, asrWords.length - 3);
+    }
+
     if (asrWords.length > this.processedAsrWordCount) {
+      // Normal interim: process only new words
       const newWords = asrWords.slice(this.processedAsrWordCount);
       this.processedAsrWordCount = asrWords.length;
 
@@ -298,8 +320,7 @@ class FollowAlongService {
           break;
         }
 
-        // Check the next 2 expected words
-        const windowEnd = Math.min(this.expectedWords.length, this.pointer + 2);
+        const windowEnd = Math.min(this.expectedWords.length, this.pointer + INTERIM_SEARCH_WINDOW);
         let bestScore = 0;
         let bestIdx = -1;
 
@@ -312,18 +333,12 @@ class FollowAlongService {
         }
 
         if (bestIdx >= 0 && bestScore >= FOLLOW_MIN_SIMILARITY) {
-          // Mark all words up to and including the match
           for (let i = this.pointer; i <= bestIdx; i++) {
             this.matchedWords.add(this.expectedWords[i].wordRef);
           }
           this.pointer = bestIdx + 1;
         }
       }
-    }
-
-    // On final result, also try matchChunk for broader matching
-    if (isFinal) {
-      this.processedAsrWordCount = 0; // Reset for next speech segment
     }
 
     this.emitStateChange();

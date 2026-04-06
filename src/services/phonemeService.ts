@@ -114,6 +114,10 @@ export function normalizeArabic(text: string): string {
   // Normalize hamza variants → bare alif
   result = result.replace(/[أإآٱ]/g, 'ا');
 
+  // Qalun-specific character normalization
+  result = result.replace(/\u06D2/g, '\u064A');  // ے (yaa barree) → ي
+  result = result.replace(/[\u06E5\u06E6\u06DE]/g, '');  // ۥ small waw, ۦ small yaa, ۞ rubʿ mark
+
   // Strip ALL Arabic diacritics and marks using Unicode ranges:
   // U+064B-065F: Arabic tashkil (fatha, kasra, damma, shadda, sukun, etc.)
   // U+0670:      Superscript alif
