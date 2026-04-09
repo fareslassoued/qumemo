@@ -75,4 +75,11 @@ android/build/
 android/app/build/
 android/app/src/main/assets/models/*.bin
 android/local.properties
-android/app/src/main/assets/web/
+# Static export (Next.js out/) — copied to assets/ root for WebViewAssetLoader
+android/app/src/main/assets/_next/
+android/app/src/main/assets/*.html
+android/app/src/main/assets/*.txt
+android/app/src/main/assets/*.ico
+android/app/src/main/assets/manifest.json
+android/app/src/main/assets/data/
+android/app/src/main/assets/fonts/

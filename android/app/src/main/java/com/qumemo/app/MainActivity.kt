@@ -3,11 +3,9 @@ package com.qumemo.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.content.res.AssetManager
 import android.os.Bundle
 import android.util.Log
 import android.webkit.ConsoleMessage
-import android.webkit.MimeTypeMap
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -15,6 +13,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import androidx.webkit.WebViewAssetLoader
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -127,37 +126,18 @@ class MainActivity : AppCompatActivity() {
         val bridge = AsrBridge(webView, whisperCtx)
         webView.addJavascriptInterface(bridge, "__AndroidAsrBridge")
 
-        // Intercept all requests and serve from assets/web/ subdirectory.
-        // This makes URL path "/" map to "assets/web/", so /_next/... resolves correctly.
-        val assets = this.assets
+        // WebViewAssetLoader serves assets/ under https://appassets.androidplatform.net/
+        // Static export files go directly in assets/ so /_next/... paths resolve naturally.
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                val host = request.url.host ?: return null
-                if (host != "appassets.androidplatform.net") return null
-
-                val path = request.url.path?.trimStart('/') ?: "follow.html"
-                val assetPath = "web/$path"
-
-                return try {
-                    val inputStream = assets.open(assetPath, AssetManager.ACCESS_STREAMING)
-                    val mimeType = guessMimeType(path)
-                    // Use null charset for binary content (fonts, images)
-                    val charset = if (mimeType.startsWith("font/") || mimeType.startsWith("image/"))
-                        null else "UTF-8"
-                    val response = WebResourceResponse(mimeType, charset, inputStream)
-                    // CORS headers needed for font preloads with crossorigin attribute
-                    response.responseHeaders = mapOf(
-                        "Access-Control-Allow-Origin" to "*",
-                        "Cache-Control" to "public, max-age=31536000"
-                    )
-                    response
-                } catch (e: Exception) {
-                    Log.w(TAG, "Asset not found: $assetPath")
-                    null
-                }
+                return assetLoader.shouldInterceptRequest(request.url)
             }
         }
 
@@ -173,24 +153,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Load via the fake HTTPS domain — interceptor maps to assets/web/
+        // Load follow-along page — assets/follow.html served by WebViewAssetLoader
         webView.loadUrl("https://appassets.androidplatform.net/follow.html")
         Log.i(TAG, "WebView loading follow.html (whisper ctx=$whisperCtx)")
-    }
-
-    private fun guessMimeType(path: String): String {
-        val ext = MimeTypeMap.getFileExtensionFromUrl(path) ?: ""
-        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
-            ?: when {
-                path.endsWith(".js") -> "application/javascript"
-                path.endsWith(".css") -> "text/css"
-                path.endsWith(".html") -> "text/html"
-                path.endsWith(".json") -> "application/json"
-                path.endsWith(".woff2") -> "font/woff2"
-                path.endsWith(".woff") -> "font/woff"
-                path.endsWith(".svg") -> "image/svg+xml"
-                else -> "application/octet-stream"
-            }
     }
 
     private fun copyAssetToInternal(filename: String): String? {
