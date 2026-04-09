@@ -24,6 +24,8 @@ const NO_MATCH_THRESHOLD = 15;
 const FOLLOW_MIN_SIMILARITY = 0.45;
 /** How many expected words to search ahead during interim matching */
 const INTERIM_SEARCH_WINDOW = 6;
+/** How many tail words from each ASR interim to process (covers ~2-3s of new speech) */
+const TAIL_WORDS_TO_PROCESS = 10;
 
 // ─── Candidate accumulation constants ────────────────────
 /** Don't lock until we have this many post-preamble ASR words */
@@ -60,7 +62,6 @@ class FollowAlongService {
 
   // ASR accumulation
   private cumulativeAsrWords: string[] = [];
-  private processedAsrWordCount = 0;
   private lastAsrText = '';
 
   // Detection state
@@ -114,7 +115,6 @@ class FollowAlongService {
     this.backend = backend;
     this.phase = 'detecting';
     this.cumulativeAsrWords = [];
-    this.processedAsrWordCount = 0;
     this.lastAsrText = '';
     this.candidateHistory.clear();
     this.consecutiveTopCandidate = null;
@@ -138,7 +138,6 @@ class FollowAlongService {
     this.pointer = 0;
     this.matchedWords.clear();
     this.cumulativeAsrWords = [];
-    this.processedAsrWordCount = 0;
     this.lastAsrText = '';
     this.detectionSurah = 0;
     this.detectionAyah = 0;
@@ -289,15 +288,19 @@ class FollowAlongService {
 
   /**
    * Phase 2: Match ASR words against expected page words sequentially.
-   * Uses the same conservative approach as recitationTrackerService's interim handler.
+   *
+   * Sliding-window aware: the ASR re-transcribes the last N seconds each call,
+   * so we always process the TAIL of the output where new speech lives.
+   * Words already behind this.pointer are safely ignored by the matching loop.
    */
   private handleFollowing(text: string, isFinal: boolean): void {
     if (this.pointer >= this.expectedWords.length) return;
 
     const asrWords = text.split(/\s+/).filter(Boolean);
+    if (asrWords.length === 0) return;
 
     if (isFinal) {
-      // Final result: run matchChunk with wide 8-word window for recovery
+      // Final result (on stop): run matchChunk with wide window for recovery
       console.log(`[FollowAlong] Final match: "${text.slice(0, 80)}..." | pointer=${this.pointer}`);
       const result = matchChunk(text, this.expectedWords, this.pointer);
       if (result) {
@@ -305,28 +308,16 @@ class FollowAlongService {
           this.matchedWords.add(this.expectedWords[i].wordRef);
         }
         this.pointer = result.matchedUpTo;
-
-        // Check if we've reached end of page
         if (this.pointer >= this.expectedWords.length) {
           this.advanceToNextPage();
         }
       }
-      this.processedAsrWordCount = 0; // Reset for next speech segment
-    } else if (asrWords.length < this.processedAsrWordCount && asrWords.length > 0) {
-      // Text regression: sliding window dropped old audio, text shrank.
-      // Only re-process the TAIL (last 3 words) — the most recent recitation.
-      // Resetting to 0 would re-process ALL words through the 4-word interim
-      // window, causing the pointer to jump way ahead of actual position.
-      console.log(`[FollowAlong] Text regression (${this.processedAsrWordCount}→${asrWords.length}), processing tail only`);
-      this.processedAsrWordCount = Math.max(0, asrWords.length - 3);
-    }
+    } else {
+      // Interim: always process the tail — new speech is at the end of the window
+      const tailStart = Math.max(0, asrWords.length - TAIL_WORDS_TO_PROCESS);
+      const tailWords = asrWords.slice(tailStart);
 
-    if (asrWords.length > this.processedAsrWordCount) {
-      // Normal interim: process only new words
-      const newWords = asrWords.slice(this.processedAsrWordCount);
-      this.processedAsrWordCount = asrWords.length;
-
-      for (const word of newWords) {
+      for (const word of tailWords) {
         if (this.pointer >= this.expectedWords.length) {
           this.advanceToNextPage();
           break;
@@ -369,7 +360,6 @@ class FollowAlongService {
     this.expectedWords = buildPageWordIndex(result.page);
     this.pointer = result.pageWordOffset;
     this.matchedWords.clear();
-    this.processedAsrWordCount = 0;
 
     // Mark words before the detection point as already matched
     for (let i = 0; i < result.pageWordOffset; i++) {
@@ -404,7 +394,6 @@ class FollowAlongService {
     this.expectedWords = buildPageWordIndex(nextPage);
     this.pointer = 0;
     this.matchedWords.clear();
-    this.processedAsrWordCount = 0;
 
     this.emit({ type: 'page-changed', page: nextPage });
     this.emitStateChange();
