@@ -15,8 +15,16 @@ android {
         versionName = "0.1.0"
 
         ndk {
-            // ABIs for Pixel 7 (arm64-v8a) + emulator (x86_64)
             abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+
+        // Force -O3 for native code even in debug builds
+        // (whisper.cpp with -O0 is 15-20x slower — unusable)
+        externalNativeBuild {
+            cmake {
+                cFlags += listOf("-O3", "-DNDEBUG")
+                cppFlags += listOf("-O3", "-DNDEBUG")
+            }
         }
     }
 
@@ -50,6 +58,7 @@ android {
             version = "3.22.1"
         }
     }
+
 }
 
 dependencies {
