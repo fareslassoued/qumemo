@@ -197,14 +197,14 @@ export function FollowAlongPage() {
         style={{ background: 'var(--bar-bg)', borderColor: 'var(--divider)' }}
         dir="ltr"
       >
-        {/* Back */}
+        {/* Close — 44px minimum touch target */}
         <button
           onClick={handleStop}
-          className="w-8 h-8 flex items-center justify-center rounded-full"
+          className="w-11 h-11 flex items-center justify-center rounded-full -ml-1"
           style={{ color: 'var(--dim)' }}
           title="Stop"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -251,25 +251,25 @@ export function FollowAlongPage() {
 
       {/* Bottom status bar */}
       <div
-        className="shrink-0 py-2 px-4 border-t flex items-center justify-between"
+        className="shrink-0 py-3 px-4 border-t flex items-center gap-3"
         style={{ background: 'var(--bar-bg)', borderColor: 'var(--divider)' }}
       >
-        {/* ASR text preview */}
-        <div
-          className="flex-1 text-xs truncate mr-2"
-          dir="rtl"
-          style={{ color: 'var(--dim)', fontFamily: 'var(--font-qaloon)', maxWidth: '70%' }}
-        >
-          {state.asrText || '...'}
-        </div>
-
         <button
           onClick={handleStop}
-          className="px-3 py-1 rounded text-xs shrink-0"
-          style={{ background: 'var(--surface)', color: 'var(--ink)', ...uiFont }}
+          className="px-5 py-2.5 rounded-lg text-sm font-medium shrink-0"
+          style={{ background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--divider)', ...uiFont }}
         >
           Stop
         </button>
+
+        {/* ASR text preview */}
+        <div
+          className="flex-1 text-xs truncate"
+          dir="rtl"
+          style={{ color: 'var(--dim)', fontFamily: 'var(--font-qaloon)' }}
+        >
+          {state.asrText || '...'}
+        </div>
       </div>
     </div>
   );

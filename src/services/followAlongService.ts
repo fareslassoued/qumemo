@@ -305,6 +305,11 @@ class FollowAlongService {
           this.matchedWords.add(this.expectedWords[i].wordRef);
         }
         this.pointer = result.matchedUpTo;
+
+        // Check if we've reached end of page
+        if (this.pointer >= this.expectedWords.length) {
+          this.advanceToNextPage();
+        }
       }
       this.processedAsrWordCount = 0; // Reset for next speech segment
     } else if (asrWords.length < this.processedAsrWordCount && asrWords.length > 0) {
