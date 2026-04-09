@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Qumemo ASR</string>
+    <string name="btn_record">Record</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_transcribe">Transcribe</string>
+    <string name="status_idle">Ready — tap Record to start</string>
+    <string name="status_recording">Recording\u2026</string>
+    <string name="status_transcribing">Transcribing\u2026</string>
+    <string name="status_loading">Loading model\u2026</string>
+</resources>

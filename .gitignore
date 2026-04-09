@@ -67,3 +67,12 @@ image.png
 
 # ASR eval reports (generated)
 tools/aligner/reports/
+
+# Android app
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/app/src/main/assets/models/*.bin
+android/local.properties
+android/app/src/main/assets/web/
