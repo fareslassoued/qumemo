@@ -29,8 +29,10 @@ android {
     }
 
     // Prevent AAPT from compressing model files (corrupts binary data)
+    // Override ignoreAssetsPattern to include _next/ (default pattern has _* which excludes it)
     androidResources {
         noCompress += listOf("bin")
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:CVS:thumbs.db:picasa.ini:*~"
     }
 
     buildTypes {

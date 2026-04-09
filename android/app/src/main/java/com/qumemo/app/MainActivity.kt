@@ -143,21 +143,6 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun loadWebApp() {
-        // Debug: verify assets are in the APK
-        try {
-            val rootFiles = assets.list("") ?: emptyArray()
-            Log.i(TAG, "Assets root: ${rootFiles.joinToString()}")
-            val hasNext = rootFiles.contains("_next")
-            val hasFollow = rootFiles.contains("follow.html")
-            Log.i(TAG, "  _next=${hasNext}, follow.html=${hasFollow}")
-            if (hasNext) {
-                val chunks = assets.list("_next/static/chunks") ?: emptyArray()
-                Log.i(TAG, "  _next/static/chunks: ${chunks.size} files")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to list assets: ${e.message}")
-        }
-
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true          // LocalStorage for bookmarks/settings
@@ -197,8 +182,6 @@ class MainActivity : AppCompatActivity() {
                         mimeType.contains("json") ||
                         mimeType.contains("xml") ||
                         mimeType.contains("svg")) "UTF-8" else null
-
-                    Log.d(TAG, "SERVE $mimeType: $path (${if (encoding != null) "text" else "binary"})")
 
                     val response = WebResourceResponse(mimeType, encoding, inputStream)
                     response.setStatusCodeAndReasonPhrase(200, "OK")
