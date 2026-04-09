@@ -119,6 +119,8 @@ class MainActivity : AppCompatActivity() {
             databaseEnabled = true            // IndexedDB for recordings
             allowFileAccess = true
             mediaPlaybackRequiresUserGesture = false  // Quran audio playback
+            useWideViewPort = true            // Respect <meta name="viewport">
+            loadWithOverviewMode = true       // Fit content to WebView width
         }
 
         // Register the ASR bridge (available even if model failed — isAvailable() returns false)
@@ -142,7 +144,16 @@ class MainActivity : AppCompatActivity() {
                 return try {
                     val inputStream = assets.open(assetPath, AssetManager.ACCESS_STREAMING)
                     val mimeType = guessMimeType(path)
-                    WebResourceResponse(mimeType, "UTF-8", inputStream)
+                    // Use null charset for binary content (fonts, images)
+                    val charset = if (mimeType.startsWith("font/") || mimeType.startsWith("image/"))
+                        null else "UTF-8"
+                    val response = WebResourceResponse(mimeType, charset, inputStream)
+                    // CORS headers needed for font preloads with crossorigin attribute
+                    response.responseHeaders = mapOf(
+                        "Access-Control-Allow-Origin" to "*",
+                        "Cache-Control" to "public, max-age=31536000"
+                    )
+                    response
                 } catch (e: Exception) {
                     Log.w(TAG, "Asset not found: $assetPath")
                     null
