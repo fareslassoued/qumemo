@@ -400,4 +400,14 @@ export class AndroidBridgeBackend implements ASRBackend {
   onError(callback: (error: string) => void): void {
     this.errorCb = callback;
   }
+
+  setFastMode(enabled: boolean): void {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__AndroidAsrBridge?.setFastMode(enabled);
+      console.log(`[ASR] Android fast mode: ${enabled}`);
+    } catch (e) {
+      console.warn('[ASR] setFastMode error:', e);
+    }
+  }
 }

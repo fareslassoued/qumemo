@@ -97,6 +97,8 @@ export interface ASRBackend {
   onError(callback: (error: string) => void): void;
   /** Backend name for display */
   readonly name: string;
+  /** Switch to fast mode (shorter window, faster interval) for word tracking */
+  setFastMode?(enabled: boolean): void;
 }
 
 /** Recitation tracker events */

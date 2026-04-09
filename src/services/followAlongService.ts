@@ -23,7 +23,7 @@ const NO_MATCH_THRESHOLD = 15;
 /** Minimum similarity for word matching in following phase */
 const FOLLOW_MIN_SIMILARITY = 0.45;
 /** How many expected words to search ahead during interim matching */
-const INTERIM_SEARCH_WINDOW = 4;
+const INTERIM_SEARCH_WINDOW = 6;
 
 // ─── Candidate accumulation constants ────────────────────
 /** Don't lock until we have this many post-preamble ASR words */
@@ -361,6 +361,8 @@ class FollowAlongService {
    */
   private lockPosition(result: PositionResult): void {
     this.phase = 'following';
+    // Switch ASR to fast mode: shorter window + faster interval for word tracking
+    this.backend?.setFastMode?.(true);
     this.currentPage = result.page;
     this.detectionSurah = result.surah;
     this.detectionAyah = result.ayah;

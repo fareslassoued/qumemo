@@ -26,11 +26,18 @@ class AsrBridge(
     companion object {
         private const val TAG = "AsrBridge"
         private const val SAMPLE_RATE = 16000
-        private const val TRANSCRIBE_INTERVAL_MS = 2000L
-        private const val WINDOW_SECONDS = 10.0f  // Transcribe last 10s of audio
+
+        // Detection mode: wide window, slower interval (surah identification)
+        private const val DETECT_INTERVAL_MS = 2000L
+        private const val DETECT_WINDOW_SECONDS = 10.0f
+
+        // Fast mode: narrow window, rapid interval (word-by-word tracking)
+        private const val FAST_INTERVAL_MS = 1000L
+        private const val FAST_WINDOW_SECONDS = 5.0f
     }
 
     @Volatile private var isRecording = false
+    @Volatile private var fastMode = false
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
     private var transcriptionThread: Thread? = null
@@ -88,12 +95,12 @@ class AsrBridge(
             }
         }.also { it.start() }
 
-        // Transcription thread: transcribes every TRANSCRIBE_INTERVAL_MS
+        // Transcription thread: interval and window adapt to current mode
         transcriptionThread = Thread {
-            Thread.sleep(TRANSCRIBE_INTERVAL_MS) // Initial delay
+            Thread.sleep(DETECT_INTERVAL_MS) // Initial delay for detection
             while (isRecording) {
                 transcribeWindow(isFinal = false)
-                Thread.sleep(TRANSCRIBE_INTERVAL_MS)
+                Thread.sleep(if (fastMode) FAST_INTERVAL_MS else DETECT_INTERVAL_MS)
             }
         }.also { it.start() }
 
@@ -123,15 +130,23 @@ class AsrBridge(
     @JavascriptInterface
     fun isAvailable(): Boolean = whisperCtx != 0L
 
+    @JavascriptInterface
+    fun setFastMode(enabled: Boolean) {
+        fastMode = enabled
+        Log.i(TAG, "Fast mode: $enabled (interval=${if (enabled) FAST_INTERVAL_MS else DETECT_INTERVAL_MS}ms, window=${if (enabled) FAST_WINDOW_SECONDS else DETECT_WINDOW_SECONDS}s)")
+    }
+
     /**
-     * Transcribe the last WINDOW_SECONDS of accumulated audio.
+     * Transcribe the last N seconds of accumulated audio.
+     * Window size adapts to current mode (detection vs fast tracking).
      */
     private fun transcribeWindow(isFinal: Boolean) {
         val samples: FloatArray
+        val windowSeconds = if (fastMode) FAST_WINDOW_SECONDS else DETECT_WINDOW_SECONDS
         synchronized(pcmBuffer) {
             if (pcmBuffer.isEmpty()) return
 
-            val windowSamples = (WINDOW_SECONDS * SAMPLE_RATE).toInt()
+            val windowSamples = (windowSeconds * SAMPLE_RATE).toInt()
             val startIdx = maxOf(0, pcmBuffer.size - windowSamples)
             val slice = pcmBuffer.subList(startIdx, pcmBuffer.size)
 
