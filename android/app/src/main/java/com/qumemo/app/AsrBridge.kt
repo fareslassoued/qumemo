@@ -78,6 +78,7 @@ class AsrBridge(
 
         synchronized(pcmBuffer) { pcmBuffer.clear() }
         isRecording = true
+        fastMode = false  // Always start in detection mode
         audioRecord?.startRecording()
 
         // Recording thread: continuously reads mic into pcmBuffer
