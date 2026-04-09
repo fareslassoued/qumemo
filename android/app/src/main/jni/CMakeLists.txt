@@ -5,7 +5,7 @@ project(qumemo-whisper)
 include(FetchContent)
 FetchContent_Declare(
     whisper
-    GIT_REPOSITORY https://github.com/ggergov/whisper.cpp.git
+    GIT_REPOSITORY https://github.com/ggml-org/whisper.cpp.git
     GIT_TAG        v1.7.3
     GIT_SHALLOW    TRUE
 )

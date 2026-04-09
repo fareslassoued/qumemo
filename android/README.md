@@ -26,7 +26,7 @@ Copy the output file to `app/src/main/assets/models/ggml-tarteel-base-q5_1.bin`.
 
 ### Option B: Use generic whisper-base for initial testing
 
-Download from https://huggingface.co/ggergov/whisper.cpp/resolve/main/ggml-base.bin
+Download from https://huggingface.co/ggml-org/whisper.cpp/resolve/main/ggml-base.bin
 and place as `app/src/main/assets/models/ggml-base.bin`.
 
 Then change `MODEL_FILENAME` in `MainActivity.kt` to `"ggml-base.bin"`.
