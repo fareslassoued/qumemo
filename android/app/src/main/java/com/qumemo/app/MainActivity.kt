@@ -137,7 +137,37 @@ class MainActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                return assetLoader.shouldInterceptRequest(request.url)
+                val response = assetLoader.shouldInterceptRequest(request.url)
+                    ?: return null
+
+                // Fix MIME types — Android's URLConnection.guessContentTypeFromName()
+                // returns null for .js/.woff2/etc, causing WebViewAssetLoader to
+                // serve them as text/plain. WebView then blocks script execution.
+                val path = request.url.path ?: return response
+                val correctMime = when {
+                    path.endsWith(".js") -> "application/javascript"
+                    path.endsWith(".mjs") -> "application/javascript"
+                    path.endsWith(".css") -> "text/css"
+                    path.endsWith(".html") -> "text/html"
+                    path.endsWith(".json") -> "application/json"
+                    path.endsWith(".woff2") -> "font/woff2"
+                    path.endsWith(".woff") -> "font/woff"
+                    path.endsWith(".ttf") -> "font/ttf"
+                    path.endsWith(".svg") -> "image/svg+xml"
+                    path.endsWith(".png") -> "image/png"
+                    path.endsWith(".webp") -> "image/webp"
+                    path.endsWith(".ico") -> "image/x-icon"
+                    path.endsWith(".wasm") -> "application/wasm"
+                    else -> return response
+                }
+
+                // Rebuild response with correct MIME type and CORS headers
+                // (CORS needed for font preloads with crossorigin attribute)
+                val fixed = WebResourceResponse(correctMime, response.encoding, response.data)
+                fixed.responseHeaders = mapOf(
+                    "Access-Control-Allow-Origin" to "*"
+                )
+                return fixed
             }
         }
 
