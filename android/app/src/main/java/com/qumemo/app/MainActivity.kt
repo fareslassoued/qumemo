@@ -249,13 +249,11 @@ class MainActivity : AppCompatActivity() {
     private fun transcribe() {
         if (whisperCtx == 0L || pcmChunks.isEmpty()) return
 
-        tvStatus.text = getString(R.string.status_transcribing)
         btnRecord.isEnabled = false
         btnTranscribe.isEnabled = false
 
         lifecycleScope.launch {
             val floatSamples = withContext(Dispatchers.Default) {
-                // Merge all chunks into one float array ([-1..1] range)
                 val totalSamples = pcmChunks.sumOf { it.size }
                 val merged = FloatArray(totalSamples)
                 var offset = 0
@@ -267,24 +265,52 @@ class MainActivity : AppCompatActivity() {
                 merged
             }
 
-            val startMs = System.currentTimeMillis()
+            val audioDuration = floatSamples.size.toFloat() / SAMPLE_RATE
+            tvStatus.text = "Transcribing %.1fs audio...".format(audioDuration)
+            Log.i(TAG, "Starting transcription: ${floatSamples.size} samples (${audioDuration}s)")
 
-            val text = withContext(Dispatchers.IO) {
-                WhisperLib.transcribeAudio(
-                    whisperCtx,
-                    floatSamples,
-                    "ar",     // Arabic
-                    5         // beam_size — matches server.py
-                )
+            // Elapsed timer — update UI every second while transcribing
+            val startMs = System.currentTimeMillis()
+            var timerRunning = true
+            launch {
+                while (timerRunning) {
+                    kotlinx.coroutines.delay(1000)
+                    if (timerRunning) {
+                        val elapsed = (System.currentTimeMillis() - startMs) / 1000
+                        tvStatus.text = "Transcribing %.1fs audio... (%ds)".format(audioDuration, elapsed)
+                    }
+                }
             }
 
-            val elapsedMs = System.currentTimeMillis() - startMs
-            val audioDuration = floatSamples.size.toFloat() / SAMPLE_RATE
+            try {
+                val text = withContext(Dispatchers.IO) {
+                    WhisperLib.transcribeAudio(
+                        whisperCtx,
+                        floatSamples,
+                        "ar",     // Arabic
+                        1         // beam_size=1 (greedy) — faster for PoC testing
+                    )
+                }
 
-            Log.i(TAG, "Transcription took ${elapsedMs}ms for ${audioDuration}s audio (${elapsedMs / (audioDuration * 1000) * 100}% realtime)")
+                timerRunning = false
+                val elapsedMs = System.currentTimeMillis() - startMs
 
-            tvResult.text = text.trim()
-            tvStatus.text = "Done in ${elapsedMs}ms (${audioDuration.let { "%.1fs".format(it) }} audio)"
+                Log.i(TAG, "Transcription took ${elapsedMs}ms, result: '$text'")
+
+                if (text.isBlank()) {
+                    tvResult.text = "No speech detected (empty result)"
+                    tvStatus.text = "Empty result after ${elapsedMs}ms"
+                } else {
+                    tvResult.text = text.trim()
+                    tvStatus.text = "Done in ${elapsedMs}ms (%.1fs audio)".format(audioDuration)
+                }
+            } catch (e: Exception) {
+                timerRunning = false
+                Log.e(TAG, "Transcription failed", e)
+                tvResult.text = "ERROR: ${e.message}\n\n${e.javaClass.simpleName}"
+                tvStatus.text = "Transcription failed"
+            }
+
             btnRecord.isEnabled = true
             btnTranscribe.isEnabled = true
         }

@@ -23,6 +23,11 @@ target_link_libraries(whisper_jni
     log      # Android logging
 )
 
+# Fix 16KB page size alignment for Android 15+ (Pixel 7)
+target_link_options(whisper_jni PRIVATE
+    "-Wl,-z,max-page-size=16384"
+)
+
 target_include_directories(whisper_jni PRIVATE
     ${whisper_SOURCE_DIR}/include
     ${whisper_SOURCE_DIR}/ggml/include
