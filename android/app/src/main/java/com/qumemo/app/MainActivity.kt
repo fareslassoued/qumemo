@@ -105,23 +105,33 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (modelPath == null) {
-                tvStatus.text = "Model not found: $MODEL_FILENAME\nPlace it in assets/models/"
+                tvStatus.text = "ERROR: Model not found"
+                tvResult.text = "Place $MODEL_FILENAME in\nassets/models/ and rebuild"
                 return@launch
             }
 
+            tvStatus.text = "Loading model (may take ~10s)..."
+
             val ctx = withContext(Dispatchers.IO) {
-                WhisperLib.initModel(modelPath)
+                try {
+                    WhisperLib.initModel(modelPath)
+                } catch (e: Exception) {
+                    Log.e(TAG, "initModel crashed: ${e.message}", e)
+                    0L
+                }
             }
 
             if (ctx == 0L) {
-                tvStatus.text = "Failed to load model"
+                tvStatus.text = "ERROR: Model failed to load"
+                tvResult.text = "Model file may be corrupted.\nTry deleting app data and rebuilding."
                 return@launch
             }
 
             whisperCtx = ctx
-            tvStatus.text = getString(R.string.status_idle)
+            val modelSize = File(modelPath).length() / 1_000_000
+            tvStatus.text = "Ready (model: ${modelSize}MB)"
             btnRecord.isEnabled = true
-            Log.i(TAG, "Model loaded: $modelPath")
+            Log.i(TAG, "Model loaded: $modelPath (${modelSize}MB)")
         }
     }
 
@@ -131,18 +141,25 @@ class MainActivity : AppCompatActivity() {
      */
     private fun copyAssetToInternal(filename: String): String? {
         val outFile = File(filesDir, filename)
+
+        // If cached, verify it's not corrupted (size > 1MB)
         if (outFile.exists()) {
-            Log.i(TAG, "Model already cached: ${outFile.absolutePath}")
-            return outFile.absolutePath
+            if (outFile.length() > 1_000_000) {
+                Log.i(TAG, "Model cached: ${outFile.absolutePath} (${outFile.length() / 1_000_000}MB)")
+                return outFile.absolutePath
+            }
+            // Corrupted/empty cache — delete and re-copy
+            Log.w(TAG, "Cached model too small (${outFile.length()} bytes), re-copying")
+            outFile.delete()
         }
 
         return try {
             assets.open("models/$filename").use { input ->
                 FileOutputStream(outFile).use { output ->
-                    input.copyTo(output)
+                    val bytes = input.copyTo(output)
+                    Log.i(TAG, "Model copied: ${outFile.absolutePath} ($bytes bytes)")
                 }
             }
-            Log.i(TAG, "Model copied to: ${outFile.absolutePath}")
             outFile.absolutePath
         } catch (e: Exception) {
             Log.e(TAG, "Failed to copy model: ${e.message}")
@@ -178,6 +195,14 @@ class MainActivity : AppCompatActivity() {
             AudioFormat.ENCODING_PCM_16BIT,
             bufferSize
         )
+
+        if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+            tvStatus.text = "ERROR: AudioRecord failed to initialize"
+            tvResult.text = "Mic may be in use by another app"
+            audioRecord?.release()
+            audioRecord = null
+            return
+        }
 
         pcmChunks.clear()
         isRecording = true

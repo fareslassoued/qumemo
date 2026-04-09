@@ -20,6 +20,11 @@ android {
         }
     }
 
+    // Prevent AAPT from compressing model files (corrupts binary data)
+    androidResources {
+        noCompress += listOf("bin")
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
