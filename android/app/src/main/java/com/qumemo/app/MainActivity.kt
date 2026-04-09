@@ -3,6 +3,7 @@ package com.qumemo.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.content.res.AssetManager
 import android.os.Bundle
 import android.util.Log
 import android.webkit.ConsoleMessage
@@ -13,7 +14,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
-import androidx.webkit.WebViewAssetLoader
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -35,6 +35,37 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "QumemoASR"
         private const val REQUEST_MIC = 1001
         private const val MODEL_FILENAME = "ggml-tarteel-base-q5_1.bin"
+
+        /** File extension → MIME type for static web assets */
+        private val MIME_TYPES = mapOf(
+            "js" to "application/javascript",
+            "mjs" to "application/javascript",
+            "css" to "text/css",
+            "html" to "text/html",
+            "htm" to "text/html",
+            "json" to "application/json",
+            "woff2" to "font/woff2",
+            "woff" to "font/woff",
+            "ttf" to "font/ttf",
+            "otf" to "font/otf",
+            "svg" to "image/svg+xml",
+            "png" to "image/png",
+            "jpg" to "image/jpeg",
+            "jpeg" to "image/jpeg",
+            "webp" to "image/webp",
+            "gif" to "image/gif",
+            "ico" to "image/x-icon",
+            "mp3" to "audio/mpeg",
+            "wasm" to "application/wasm",
+            "txt" to "text/plain",
+            "xml" to "application/xml",
+            "webmanifest" to "application/manifest+json",
+        )
+
+        private fun mimeForPath(path: String): String {
+            val ext = path.substringAfterLast('.', "").lowercase()
+            return MIME_TYPES[ext] ?: "application/octet-stream"
+        }
     }
 
     private lateinit var webView: WebView
@@ -112,23 +143,16 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun loadWebApp() {
-        // Debug: list assets to verify files are packaged in APK
+        // Debug: verify assets are in the APK
         try {
             val rootFiles = assets.list("") ?: emptyArray()
             Log.i(TAG, "Assets root: ${rootFiles.joinToString()}")
-            if (rootFiles.contains("_next")) {
-                val nextFiles = assets.list("_next/static/chunks") ?: emptyArray()
-                Log.i(TAG, "Assets _next/static/chunks: ${nextFiles.size} files")
-                nextFiles.filter { it.endsWith(".css") || it.endsWith(".js") }.take(5).forEach {
-                    Log.i(TAG, "  chunk: $it")
-                }
-            } else {
-                Log.e(TAG, "_next directory NOT FOUND in assets!")
-            }
-            if (rootFiles.contains("follow.html")) {
-                Log.i(TAG, "follow.html found in assets")
-            } else {
-                Log.e(TAG, "follow.html NOT FOUND in assets!")
+            val hasNext = rootFiles.contains("_next")
+            val hasFollow = rootFiles.contains("follow.html")
+            Log.i(TAG, "  _next=${hasNext}, follow.html=${hasFollow}")
+            if (hasNext) {
+                val chunks = assets.list("_next/static/chunks") ?: emptyArray()
+                Log.i(TAG, "  _next/static/chunks: ${chunks.size} files")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to list assets: ${e.message}")
@@ -148,57 +172,51 @@ class MainActivity : AppCompatActivity() {
         val bridge = AsrBridge(webView, whisperCtx)
         webView.addJavascriptInterface(bridge, "__AndroidAsrBridge")
 
-        // WebViewAssetLoader serves assets/ under https://appassets.androidplatform.net/
-        // Static export files go directly in assets/ so /_next/... paths resolve naturally.
-        val assetLoader = WebViewAssetLoader.Builder()
-            .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
-            .build()
-
+        // Serve assets directly — bypasses WebViewAssetLoader entirely.
+        // Opens asset files manually with correct MIME types and status codes.
+        val appAssets = this.assets
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                Log.d(TAG, "INTERCEPT: ${request.url}")
+                val url = request.url
+                if (url.host != "appassets.androidplatform.net") return null
 
-                val response = assetLoader.shouldInterceptRequest(request.url)
-                if (response == null) {
-                    Log.w(TAG, "  → assetLoader returned NULL for ${request.url}")
-                    return null
+                var path = url.path?.trimStart('/') ?: ""
+                if (path.isEmpty() || path.endsWith("/")) {
+                    path = "${path}index.html"
                 }
 
-                val originalMime = response.mimeType
-                Log.d(TAG, "  → assetLoader returned mime=$originalMime")
+                val mimeType = mimeForPath(path)
 
-                // Fix MIME types — Android's URLConnection.guessContentTypeFromName()
-                // returns null for .js/.woff2/etc, causing WebViewAssetLoader to
-                // serve them as text/plain. WebView then blocks script execution.
-                val path = request.url.path ?: return response
-                val correctMime = when {
-                    path.endsWith(".js") -> "application/javascript"
-                    path.endsWith(".mjs") -> "application/javascript"
-                    path.endsWith(".css") -> "text/css"
-                    path.endsWith(".html") -> "text/html"
-                    path.endsWith(".json") -> "application/json"
-                    path.endsWith(".woff2") -> "font/woff2"
-                    path.endsWith(".woff") -> "font/woff"
-                    path.endsWith(".ttf") -> "font/ttf"
-                    path.endsWith(".svg") -> "image/svg+xml"
-                    path.endsWith(".png") -> "image/png"
-                    path.endsWith(".webp") -> "image/webp"
-                    path.endsWith(".ico") -> "image/x-icon"
-                    path.endsWith(".wasm") -> "application/wasm"
-                    else -> return response
+                return try {
+                    val inputStream = appAssets.open(path, AssetManager.ACCESS_STREAMING)
+                    val encoding = if (mimeType.startsWith("text/") ||
+                        mimeType.contains("javascript") ||
+                        mimeType.contains("json") ||
+                        mimeType.contains("xml") ||
+                        mimeType.contains("svg")) "UTF-8" else null
+
+                    Log.d(TAG, "SERVE $mimeType: $path (${if (encoding != null) "text" else "binary"})")
+
+                    val response = WebResourceResponse(mimeType, encoding, inputStream)
+                    response.setStatusCodeAndReasonPhrase(200, "OK")
+                    response.responseHeaders = mapOf(
+                        "Access-Control-Allow-Origin" to "*",
+                        "Access-Control-Allow-Methods" to "GET",
+                        "Cache-Control" to "no-cache",
+                    )
+                    response
+                } catch (e: java.io.FileNotFoundException) {
+                    Log.w(TAG, "NOT FOUND: $path")
+                    val response = WebResourceResponse("text/plain", "UTF-8", null)
+                    response.setStatusCodeAndReasonPhrase(404, "Not Found")
+                    response
+                } catch (e: Exception) {
+                    Log.e(TAG, "ERROR serving $path: ${e.message}")
+                    null
                 }
-
-                Log.d(TAG, "  → serving as $correctMime: $path")
-
-                // Rebuild response with correct MIME type and CORS headers
-                val fixed = WebResourceResponse(correctMime, response.encoding, response.data)
-                fixed.responseHeaders = mapOf(
-                    "Access-Control-Allow-Origin" to "*"
-                )
-                return fixed
             }
         }
 
@@ -214,7 +232,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Load follow-along page — assets/follow.html served by WebViewAssetLoader
+        // Load follow-along page via fake HTTPS origin — interceptor serves from assets/
         webView.loadUrl("https://appassets.androidplatform.net/follow.html")
         Log.i(TAG, "WebView loading follow.html (whisper ctx=$whisperCtx)")
     }
