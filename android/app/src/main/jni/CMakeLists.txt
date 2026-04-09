@@ -5,7 +5,7 @@ project(qumemo-whisper)
 include(FetchContent)
 FetchContent_Declare(
     whisper
-    URL https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.7.3.tar.gz
+    URL https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.8.4.tar.gz
 )
 
 # Build whisper as a static library (no examples/tests)
