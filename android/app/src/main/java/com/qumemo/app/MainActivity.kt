@@ -112,6 +112,28 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun loadWebApp() {
+        // Debug: list assets to verify files are packaged in APK
+        try {
+            val rootFiles = assets.list("") ?: emptyArray()
+            Log.i(TAG, "Assets root: ${rootFiles.joinToString()}")
+            if (rootFiles.contains("_next")) {
+                val nextFiles = assets.list("_next/static/chunks") ?: emptyArray()
+                Log.i(TAG, "Assets _next/static/chunks: ${nextFiles.size} files")
+                nextFiles.filter { it.endsWith(".css") || it.endsWith(".js") }.take(5).forEach {
+                    Log.i(TAG, "  chunk: $it")
+                }
+            } else {
+                Log.e(TAG, "_next directory NOT FOUND in assets!")
+            }
+            if (rootFiles.contains("follow.html")) {
+                Log.i(TAG, "follow.html found in assets")
+            } else {
+                Log.e(TAG, "follow.html NOT FOUND in assets!")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list assets: ${e.message}")
+        }
+
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true          // LocalStorage for bookmarks/settings
@@ -137,8 +159,16 @@ class MainActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
+                Log.d(TAG, "INTERCEPT: ${request.url}")
+
                 val response = assetLoader.shouldInterceptRequest(request.url)
-                    ?: return null
+                if (response == null) {
+                    Log.w(TAG, "  → assetLoader returned NULL for ${request.url}")
+                    return null
+                }
+
+                val originalMime = response.mimeType
+                Log.d(TAG, "  → assetLoader returned mime=$originalMime")
 
                 // Fix MIME types — Android's URLConnection.guessContentTypeFromName()
                 // returns null for .js/.woff2/etc, causing WebViewAssetLoader to
@@ -161,8 +191,9 @@ class MainActivity : AppCompatActivity() {
                     else -> return response
                 }
 
+                Log.d(TAG, "  → serving as $correctMime: $path")
+
                 // Rebuild response with correct MIME type and CORS headers
-                // (CORS needed for font preloads with crossorigin attribute)
                 val fixed = WebResourceResponse(correctMime, response.encoding, response.data)
                 fixed.responseHeaders = mapOf(
                     "Access-Control-Allow-Origin" to "*"
