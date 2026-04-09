@@ -339,3 +339,65 @@ export class HFInferenceBackend implements ASRBackend {
     }
   }
 }
+
+// ─── Android On-Device Whisper Backend ─────────────────
+
+/**
+ * ASR backend for Android WebView — communicates with native Kotlin
+ * via @JavascriptInterface bridge. The native side runs whisper.cpp
+ * directly on-device (no network, no WebSocket).
+ *
+ * Kotlin side: AsrBridge.kt registers as window.__AndroidAsrBridge
+ * and calls window.__asrCallback(text, isFinal) with results.
+ */
+export class AndroidBridgeBackend implements ASRBackend {
+  readonly name = 'Android On-Device Whisper';
+  private resultCb: ((text: string, isFinal: boolean) => void) | null = null;
+  private errorCb: ((error: string) => void) | null = null;
+
+  isAvailable(): boolean {
+    return typeof window !== 'undefined' && '__AndroidAsrBridge' in window;
+  }
+
+  async start(): Promise<void> {
+    if (!this.isAvailable()) {
+      throw new Error('Android ASR bridge not available');
+    }
+
+    // Register callback on window for Kotlin to invoke via evaluateJavascript
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.__asrCallback = (text: string, isFinal: boolean) => {
+      if (text) {
+        console.log(`[ASR Android ${isFinal ? 'FINAL' : 'interim'}] "${text}"`);
+        this.resultCb?.(text, isFinal);
+      }
+    };
+
+    win.__asrErrorCallback = (error: string) => {
+      console.error(`[ASR Android ERROR] ${error}`);
+      this.errorCb?.(error);
+    };
+
+    // Tell Kotlin to start recording + streaming transcription
+    win.__AndroidAsrBridge.start();
+    console.log('[ASR] Android on-device backend started');
+  }
+
+  stop(): void {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__AndroidAsrBridge?.stop();
+    } catch (e) {
+      console.warn('[ASR] Android bridge stop error:', e);
+    }
+  }
+
+  onResult(callback: (text: string, isFinal: boolean) => void): void {
+    this.resultCb = callback;
+  }
+
+  onError(callback: (error: string) => void): void {
+    this.errorCb = callback;
+  }
+}

@@ -7,7 +7,7 @@
 
 import { buildPageWordIndex, matchChunk, matchWordQuick } from './recitationMatcherService';
 import { normalizeArabic } from './phonemeService';
-import { LocalWhisperBackend, WebSpeechBackend, HFInferenceBackend } from './asrBackends';
+import { AndroidBridgeBackend, LocalWhisperBackend, WebSpeechBackend, HFInferenceBackend } from './asrBackends';
 import type {
   ASRBackend,
   ExpectedWord,
@@ -404,13 +404,13 @@ class RecitationTrackerService {
   // ─── Backend selection ──────────────────────────────────
 
   private async getAvailableBackends(preferred?: 'local' | 'webspeech' | 'hf'): Promise<ASRBackend[]> {
+    const androidBridge = new AndroidBridgeBackend();
     const localWhisper = new LocalWhisperBackend();
     const webSpeech = new WebSpeechBackend();
     const hf = new HFInferenceBackend();
 
-    const available: ASRBackend[] = [];
-
     // Check availability (LocalWhisper is async)
+    const androidOk = androidBridge.isAvailable();
     const localOk = await localWhisper.isAvailable();
     const webOk = webSpeech.isAvailable();
     const hfOk = hf.isAvailable();
@@ -422,7 +422,8 @@ class RecitationTrackerService {
     if (preferred === 'webspeech' && webOk) priorityOrder.push(webSpeech);
     if (preferred === 'hf' && hfOk) priorityOrder.push(hf);
 
-    // Default priority: Local Whisper > Web Speech > HF
+    // Default priority: Android Bridge > Local Whisper > Web Speech > HF
+    if (androidOk && !priorityOrder.includes(androidBridge)) priorityOrder.push(androidBridge);
     if (localOk && !priorityOrder.includes(localWhisper)) priorityOrder.push(localWhisper);
     if (webOk && !priorityOrder.includes(webSpeech)) priorityOrder.push(webSpeech);
     if (hfOk && !priorityOrder.includes(hf)) priorityOrder.push(hf);

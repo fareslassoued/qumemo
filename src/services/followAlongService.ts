@@ -9,7 +9,7 @@
  * and gold highlight instead of hidden/reveal.
  */
 
-import { LocalWhisperBackend } from './asrBackends';
+import { AndroidBridgeBackend, LocalWhisperBackend } from './asrBackends';
 import { buildPageWordIndex, matchChunk } from './recitationMatcherService';
 import { normalizeArabic } from './phonemeService';
 import { quranSearchIndex, type PositionCandidate, type PositionResult } from './quranSearchIndex';
@@ -83,9 +83,16 @@ class FollowAlongService {
     // Pre-build the search index (lazy, only first time)
     quranSearchIndex.ensureBuilt();
 
-    const backend = new LocalWhisperBackend();
-    const available = await backend.isAvailable();
-    if (!available) {
+    // Try Android bridge first (on-device), fall back to local server
+    const androidBridge = new AndroidBridgeBackend();
+    const localWhisper = new LocalWhisperBackend();
+
+    let backend;
+    if (androidBridge.isAvailable()) {
+      backend = androidBridge;
+    } else if (await localWhisper.isAvailable()) {
+      backend = localWhisper;
+    } else {
       return false;
     }
 
