@@ -7,6 +7,7 @@
 
 import { buildPageWordIndex, matchChunk, matchWordQuick } from './recitationMatcherService';
 import { normalizeArabic } from './phonemeService';
+import { quranDataService } from './quranDataService';
 import { AndroidBridgeBackend, LocalWhisperBackend, WebSpeechBackend, HFInferenceBackend } from './asrBackends';
 import type {
   ASRBackend,
@@ -89,6 +90,9 @@ class RecitationTrackerService {
         await backend.start();
         this.backend = backend;
         console.log(`[Tracker] Using backend: ${backend.name}`);
+
+        // Set initial prompt for Android backend (surah name)
+        this.updatePrompt();
         break;
       } catch (e) {
         console.warn(`[Tracker] Backend ${backend.name} failed to start:`, e);
@@ -251,6 +255,9 @@ class RecitationTrackerService {
 
     this.pointer = Math.max(this.pointer, targetIndex);
 
+    // Update prompt with new position context
+    this.updatePrompt();
+
     if (this.pointer >= this.expectedWords.length) {
       this.completeTracking();
       return;
@@ -374,6 +381,33 @@ class RecitationTrackerService {
    */
   isActive(): boolean {
     return this.isListening;
+  }
+
+  /**
+   * Update the ASR prompt with surah name and last matched words.
+   * Called on start and after each successful word match.
+   */
+  private updatePrompt(): void {
+    if (!this.backend || this.expectedWords.length === 0) return;
+
+    const firstWord = this.expectedWords[0];
+    if (!firstWord) return;
+
+    const surahInfo = quranDataService.getSurahInfo(firstWord.surah);
+    const surahName = surahInfo?.nameArabic || '';
+
+    const lastWords = this.pointer > 0
+      ? this.expectedWords.slice(Math.max(0, this.pointer - 3), this.pointer)
+          .map(w => w.text)
+          .join(' ')
+      : '';
+
+    const prompt = `${surahName} ${lastWords}`.trim();
+
+    if (this.backend && 'setPrompt' in this.backend) {
+      (this.backend as any).setPrompt(prompt);
+      console.log(`[Tracker] Prompt updated: ${prompt.slice(0, 50)}...`);
+    }
   }
 
   // ─── Word similarity (for conservative interim matching) ──

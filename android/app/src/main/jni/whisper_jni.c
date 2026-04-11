@@ -45,7 +45,8 @@ JNIEXPORT jstring JNICALL
 Java_com_qumemo_app_WhisperLib_transcribeAudio(
     JNIEnv *env, jobject thiz,
     jlong ctx_ptr, jfloatArray samples,
-    jstring language, jint beam_size)
+    jstring language, jint beam_size,
+    jstring initial_prompt)
 {
     struct whisper_context *ctx = (struct whisper_context *)(intptr_t)ctx_ptr;
     if (ctx == NULL) {
@@ -74,9 +75,22 @@ Java_com_qumemo_app_WhisperLib_transcribeAudio(
     params.suppress_blank = true;
     params.suppress_nst   = true;
 
+    /* Set initial prompt for context-aware decoding */
+    const char *prompt = NULL;
+    if (initial_prompt != NULL) {
+        prompt = (*env)->GetStringUTFChars(env, initial_prompt, NULL);
+        if (prompt != NULL && strlen(prompt) > 0) {
+            params.initial_prompt = prompt;
+            LOGI("Using prompt: %s", prompt);
+        }
+    }
+
     /* Run inference */
     int ret = whisper_full(ctx, params, pcm, n_samples);
 
+    if (prompt != NULL && initial_prompt != NULL) {
+        (*env)->ReleaseStringUTFChars(env, initial_prompt, prompt);
+    }
     (*env)->ReleaseStringUTFChars(env, language, lang);
     (*env)->ReleaseFloatArrayElements(env, samples, pcm, JNI_ABORT);
 

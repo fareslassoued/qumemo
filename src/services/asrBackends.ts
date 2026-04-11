@@ -410,4 +410,14 @@ export class AndroidBridgeBackend implements ASRBackend {
       console.warn('[ASR] setFastMode error:', e);
     }
   }
+
+  setPrompt(prompt: string): void {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__AndroidAsrBridge?.setPrompt(prompt);
+      console.log(`[ASR] Android prompt set: ${prompt.slice(0, 30)}...`);
+    } catch (e) {
+      console.warn('[ASR] setPrompt error:', e);
+    }
+  }
 }

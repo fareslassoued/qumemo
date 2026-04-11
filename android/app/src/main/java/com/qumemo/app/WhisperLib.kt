@@ -20,12 +20,14 @@ object WhisperLib {
     /**
      * Transcribe float PCM audio (16 kHz, mono, [-1..1] range).
      * Returns the transcribed text.
+     * @param initialPrompt Optional context string (surah name + last matched words) to guide the decoder.
      */
     external fun transcribeAudio(
         contextPtr: Long,
         samples: FloatArray,
         language: String,
-        beamSize: Int
+        beamSize: Int,
+        initialPrompt: String
     ): String
 
     /** Release the model context. */

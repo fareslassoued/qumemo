@@ -45,6 +45,9 @@ class AsrBridge(
     // Accumulated PCM samples (thread-safe access via synchronized)
     private val pcmBuffer = mutableListOf<Short>()
 
+    // Prompt for context-aware decoding (surah name + last matched words)
+    @Volatile private var currentPrompt: String = ""
+
     @JavascriptInterface
     fun start() {
         if (isRecording) return
@@ -137,6 +140,12 @@ class AsrBridge(
         Log.i(TAG, "Fast mode: $enabled (interval=${if (enabled) FAST_INTERVAL_MS else DETECT_INTERVAL_MS}ms, window=${if (enabled) FAST_WINDOW_SECONDS else DETECT_WINDOW_SECONDS}s)")
     }
 
+    @JavascriptInterface
+    fun setPrompt(prompt: String) {
+        currentPrompt = prompt
+        Log.i(TAG, "Prompt updated: ${if (prompt.length > 30) prompt.take(30) + "..." else prompt}")
+    }
+
     /**
      * Transcribe the last N seconds of accumulated audio.
      * Window size adapts to current mode (detection vs fast tracking).
@@ -158,7 +167,7 @@ class AsrBridge(
 
         val startMs = System.currentTimeMillis()
         val text = try {
-            WhisperLib.transcribeAudio(whisperCtx, samples, "ar", 1)
+            WhisperLib.transcribeAudio(whisperCtx, samples, "ar", 1, currentPrompt)
         } catch (e: Exception) {
             Log.e(TAG, "Transcription error", e)
             emitError("Transcription failed: ${e.message}")
