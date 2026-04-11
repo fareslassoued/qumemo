@@ -5,7 +5,7 @@
  * Auto-selects best available backend. Emits events for UI updates.
  */
 
-import { buildPageWordIndex, matchChunk, matchWordQuick } from './recitationMatcherService';
+import { buildPageWordIndex, matchChunk } from './recitationMatcherService';
 import { normalizeArabic } from './phonemeService';
 import { quranDataService } from './quranDataService';
 import { AndroidBridgeBackend, LocalWhisperBackend, WebSpeechBackend, HFInferenceBackend } from './asrBackends';
@@ -404,8 +404,8 @@ class RecitationTrackerService {
 
     const prompt = `${surahName} ${lastWords}`.trim();
 
-    if (this.backend && 'setPrompt' in this.backend) {
-      (this.backend as any).setPrompt(prompt);
+    if (this.backend && typeof this.backend.setPrompt === 'function') {
+      this.backend.setPrompt(prompt);
       console.log(`[Tracker] Prompt updated: ${prompt.slice(0, 50)}...`);
     }
   }

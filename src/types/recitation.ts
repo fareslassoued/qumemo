@@ -99,6 +99,8 @@ export interface ASRBackend {
   readonly name: string;
   /** Switch to fast mode (shorter window, faster interval) for word tracking */
   setFastMode?(enabled: boolean): void;
+  /** Set prompt for context-aware decoding */
+  setPrompt?(prompt: string): void;
 }
 
 /** Recitation tracker events */

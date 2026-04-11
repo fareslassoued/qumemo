@@ -1,0 +1,30 @@
+[project]
+name = "quran-asr-server"
+version = "0.1.0"
+description = "Local faster-whisper ASR server for Quran recitation tracking"
+requires-python = ">=3.10"
+dependencies = [
+    "faster-whisper>=1.1.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "numpy>=1.26.0",
+    "websockets>=13.0",
+]
+
+[project.optional-dependencies]
+# Only needed for convert_model.py (one-time step)
+convert = [
+    "transformers>=4.40.0",
+    "torch>=2.3.0",
+]
+cuda = [
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
